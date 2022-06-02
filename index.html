@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!--
+  Big Twos
+  Author: Jin Terada White
+  This is a personal project to play games with friends online.
+
+  This is the index.html file for a card game called "Big Twos" which two
+  (later on more than two) players can play with each other remotely.
+  Find more details for the rules of the game at:
+  "https://www.wikihow.com/Play-Big-Two#:~:text=The%20rules%20of%20big%20two,a%20triple%20of%20higher%20rank."
+-->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <link rel="stylesheet" href="http://fonts.cdnfonts.com/css/pokemon-fire-red"> -->
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="node_modules/deck-of-cards/example/example.css">
+    <script type="module" src="./index.js"></script>
+    <title>Big Twos for Friends</title>
+</head>
+
+
+<body>
+    <script src="node_modules/deck-of-cards/dist/deck.min.js"></script>
+    <header>
+        <h1>Big Twos</h1>
+        <article>
+            <h2 id="turn">Your Turn</h2>
+        </article>
+    </header>
+    <main>
+        <div id="game">
+            <article class="container" id="table">
+                <section id="type">Type: singles</section>
+                <div class="cards"></div>
+            </article>
+            <article class="container" id="hand">
+                <div class="interact cards">
+                </div>
+                <button id="move">Move</button>
+            </article>
+        </div>
+    </main>
+
+</body>
+
+</html>
