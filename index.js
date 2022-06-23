@@ -9,6 +9,7 @@ import { handTypes } from "./constants.js";
   let p1Cards = [];
   let p2Cards = [];
   let currentType;
+  let currentSuit;
   let cardScore = 0;
   let playerCanChoose = true;
 
@@ -109,8 +110,11 @@ import { handTypes } from "./constants.js";
       selected.delete(this.parentElement);
       // remove the card-slot from an object
     }
-
-    console.log(checkValidHand());
+    console.log(checkValidHand())
+    console.log([currentType, cardScore, currentSuit]) // something weird happened after making a few small changes about check return and printlns
+    // if (checkValidHand()) {
+    //   // enable/disable
+    // }
   }
 
   function updateCardLocation(p1Cards) {
@@ -147,54 +151,98 @@ import { handTypes } from "./constants.js";
     if (playerCanChoose) {
       let code;
       let handSize = selected.size;
-      let name, multiplier, highCard;
+      let name, multiplier, highCard, highSuit;
 
+      // flags for Straight, Flush, and Royal
       let [S, F, R] = [true, true, true];
+
+      // set to find cards in a full house and detect duplicates ranks; stores the card ranks currently selected
       let findFH = new Set();
+
+      // set to track what suits are selected
       let suits = new Set(["diamonds", "clubs", "hearts", "spades"]);
-      let royals = new Set([1, 13, 12, 11]);
-      let prevRank;
+
+      // set to track which royal cards are selected
+      let royals = new Set([1, 13, 12, 11]); // A, K, Q, J (i think)
+
+      // status flags for determining if there's a straight
+      let [flag1, flag2, flag3, flag4, flag10, flag11, flag12, flag13] = [false, false, false, false, false, false, false, false]
+      let max = 13;
+      let min = 1;
+      let isConsecutive = true;
+
+      // loop to set flags for determining the current selected hand
       for (let item of selected) {
         let child = item.firstElementChild;
         let [card, suit, rank] = child.classList;
-        rank = rank.replace("rank", "");
-        findFH.add(rank);
-        if (highCard === undefined) {
-          highCard = rank;
-        } else if (
-          rank == 2 ||
-          (highCard != 2 && rank == 1) ||
-          highCard < rank
-        ) {
+        rank = parseInt(rank.replace("rank", ""));
+        
+        // update the current highest card (by number)
+        if (highCard === undefined        ||
+            rank == 2                     ||
+            (highCard != 2 && rank == 1)  ||
+            highCard < rank
+            ) {
           highCard = rank;
         }
 
-        if (prevRank === undefined) {
-          if (rank == 12 || rank == 11) {
-            [S, F] = [false, false];
-            prevRank = 0;
-          } else {
-            prevRank = rank;
-          }
-        } else if (
-          prevRank != 0 &&
-          rank != prevRank + 1 &&
-          prevRank - rank != 12
-        ) {
-          S = false;
+        let suitValue = suit == "diamonds" ? 0 : suit == "clubs" ? 1 : suit == "hearts" ? 2 : 3;
+        if (highSuit === undefined || suitValue > highSuit) {
+          highSuit = suitValue;
         }
+
+        // all ranks need to fall within the range which narrows as we go on.
+        if (rank < min || rank > max) isConsecutive = false;
+            
+        // narrow the range to 5
+        // compare possible straight lowerbound and upperbound to current possible range
+        if (max - min > 4) {
+          let lowerBound = rank - 4;
+          let upperBound = rank + 4;
+          if (lowerBound > min) { 
+            min = lowerBound;
+          }
+          if (upperBound < max) { 
+            max = upperBound;
+          }
+        }
+
+        // set straight flags  
+        if (rank == 1) flag1 = true; 
+        if (rank == 2) flag2 = true; 
+        if (rank == 3) flag3 = true; 
+        if (rank == 4) flag4 = true;
+        if (rank == 10) flag10 = true; 
+        if (rank == 11) flag11 = true; 
+        if (rank == 12) flag12 = true; 
+        if (rank == 13) flag13 = true; 
+      
+        // update the sets
+        findFH.add(rank);
         royals.delete(rank);
         suits.delete(suit);
       }
+
+      // assign multiplier and name
       if (selected.size < 5) {
-        if (findFH.size == 1) {
+        if (findFH.size == 1) { // DON"T GET WHAT THIS MEANS?
           [name, multiplier] = handTypes[selected.size];
         }
       } else {
         if (findFH.size == 2) {
           code = 3;
         } else {
-          if (prevRank == 3 || prevRank == 4) [S, F] = [false, false];
+
+          /* Determine if it was a Straight
+           * casesWith13: if theres a 13 and it includes a 3 or 4 it's invalid. 
+           *              Also handles all edge cases that include a 13.
+           * If casesWith13 is true, we do not need to check if it's consecutive.
+           * Otherwise, we need to check if it was consecutive.
+           */      
+          let casesWith13 = flag13 && !flag3 && !flag4 && flag1 && flag11 && flag12 && (flag10 || flag2); 
+          S = casesWith13 || isConsecutive;
+          
+          // if (prevRank == 3 || prevRank == 4) [S, F] = [false, false]; what was this lol? 
           F = F && suits.size === 3;
           R = royals.size === 0;
           if (!F && !S) {
@@ -213,13 +261,28 @@ import { handTypes } from "./constants.js";
       }
 
       let newScore = highCard * multiplier;
-      if (currentType === undefined && name != "invalid") {
-        cardScore = newScore;
-        currentType = name;
-      } else if (currentType == name && cardScore > newScore) {
-        cardScore = newScore;
+      if (name != "invalid") {        
+        if (currentType == undefined) { // add checking and functionality for when the type shouldn't change later
+          cardScore = newScore;
+          currentType = name;
+          currentSuit = highSuit;
+        } else if (currentType == name) {
+          if (cardScore == newScore && currentSuit > highSuit) return false;
+          if (cardScore > newScore) {
+            cardScore = newScore;
+          }
+        } 
+        return true;
       }
-      return [name, multiplier];
+      // console.log(R,S,F)
+      // console.log(royals)
+      // console.log(name);
+      // console.log(currentType);
+      // console.log(highCard);
+      // console.log(multiplier);
+      // console.log(newScore);
+      console.log([currentType, cardScore])
+      return false;
     }
     return null;
   }

@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "deck-of-cards": "^0.1.8"
+    "deck-of-cards": "^0.1.8",
+    "http-server": "^14.1.1"
   }
 }
