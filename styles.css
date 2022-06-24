@@ -124,6 +124,11 @@ button:active {
   border: 5px inset #bd9425;
 }
 
+button:disabled {
+  cursor: default;
+  border: 5px outset #bd9425;
+}
+
 /* footer {
   flex-direction: row;
   justify-content: flex-start;
