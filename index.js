@@ -22,8 +22,11 @@ import { handTypes } from "./constants.js";
   // controlled by status signals from the API
 
   async function init() {
+    // 2,3,4,5,6 of spades
+    let cards = [1,2,3,4,5,6,10,14,27];
+
     // create Deck
-    let deck = Deck(false);
+    let deck = Deck(cards);
 
     //let card = deck.cards[0];
     // deck.mount(container);
@@ -38,7 +41,7 @@ import { handTypes } from "./constants.js";
     // document.querySelector(".interact").appendChild(container);
 
     // player 1
-    for (let i = 0; i < 40; i += 2) {
+    for (let i = 0; i < deck.cards.length; i++) {
       //   deck.cards[i].enableDragging();
       //   deck.cards[i + 1].enableDragging();
       p1Cards.push(deck.cards[i]);

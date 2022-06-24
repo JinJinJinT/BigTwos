@@ -1,2 +1,11 @@
-node_modules
-strart-server
+!node_modules/
+
+node_modules/*
+!node_modules/deck-of-cards/
+
+node_modules/deck-of-cards/*
+!node_modules/deck-of-cards/dist/*
+!node_modules/deck-of-cards/lib/*
+
+start-server
+open-terminal
