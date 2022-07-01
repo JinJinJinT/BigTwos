@@ -15,3 +15,5 @@ node_modules/deck-of-cards/*
 
 start-server.bat
 open-terminal.bat
+api-launch.bat
+big2.db

@@ -22,16 +22,16 @@ import { handTypes } from "./constants.js";
   // controlled by status signals from the API
 
   async function init() {
-    // 2,3,4,5,6 of spades
-    let cards = [1,2,3,4,5,6,10,14,27];
-
+    // 0-12 is A-K. index % 13 is the card
+    let cards = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,38,39];
+    // let cards = Array.from(Array(39).keys())
     // create Deck
     let deck = Deck(cards);
 
     //let card = deck.cards[0];
     // deck.mount(container);
     deck.flip();
-    deck.shuffle();
+    // deck.shuffle();
     // deck.cards[0].enableDragging();
     // deck.cards[1].enableDragging();
 
@@ -47,7 +47,7 @@ import { handTypes } from "./constants.js";
       p1Cards.push(deck.cards[i]);
       //   p2Cards.push(deck.cards[i + 1]);
     }
-    p1Cards.sort(sort);
+    p1Cards.sort(sort); //MAKE SURE TO PUT THIS BACK
 
     console.log(p1Cards);
 
@@ -333,7 +333,7 @@ import { handTypes } from "./constants.js";
     if (b.rank == 2) return -1;
     if (a.rank == 1) return 1;
     if (b.rank == 1) return -1;
-    return sub;
+    return sub; // maybe sort by suit later
   }
 
   // get child

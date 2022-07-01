@@ -1,4 +1,2 @@
-set PATH=C:\nodejs;%PATH%
-set PATH=C:\Users\dn261f\Desktop\TestGit\BigTwos-main\node_modules\http-server\bin;%PATH%
+start C:\Users\dn261f\Desktop\TestGit\BigTwos\open-terminal.bat
 http-server
-PAUSE
