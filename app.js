@@ -12,11 +12,24 @@ const express = require("express");
 const app = express();
 const multer = require("multer");
 const crypto = require("crypto");
-const { debugPort } = require("process");
+
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
+
+const dotenv = require('dotenv');
+const jwt = require('jsonwebtoken');
+const auth = require("./auth");
 
 const INVALID_PARAM_ERROR = 400;
+const INVALID_TOKEN_ERROR = 403;
 const SERVER_ERROR = 500;
 const SERVER_ERROR_MSG = "An error occurred on the server :( Try again later.";
+
+// Set up Global configuration access
+dotenv.config({override: true});
+
+app.set('view engine', 'ejs');
 
 app.use(express.urlencoded({extended: true})); // built-in middleware
 // for application/json
@@ -24,37 +37,39 @@ app.use(express.json()); // built-in middleware
 // for multipart/form-data (required with FormData)
 app.use(multer().none()); // requires the "multer" module
 
-// app.get("/", (req,res)=>{
-//   res.render('index.ejs')
-// })
-
-app.get("/login", (req, res) => {
-    res.render('login.ejs');
+app.get("/login", auth, (req, res) => {
+  res.render('login.ejs')
 })
 
 app.post("/login", async (req, res) => {
-  res.type("text");
   try {
     const db = await getDBConnection();
     let user = req.body.username;
     let query = `
-        SELECT salt, hash, name
+        SELECT salt, hash, name, token
         FROM friends
         WHERE user = ?;
     `
     let verifyUser = await db.get(query, user);
     if (verifyUser == undefined) {
-      res
-          .status(INVALID_PARAM_ERROR)
-          .send("The username or pasword is incorrect.");
+      res.status(INVALID_PARAM_ERROR);
+      res.render('login', {message: "The username or pasword is incorrect."});
+      // req.app.locals.message = "The username or pasword is incorrect.";
     } else {
       let hash = crypto.createHash('sha256').update(req.body.password + verifyUser.salt).digest('base64');
   
       if (verifyUser.hash != hash) {
-          res
-            .status(INVALID_PARAM_ERROR)
-            .send("The username or pasword is incorrect.");
+        res.status(INVALID_PARAM_ERROR);
+        res.render('login', {message: "The username or pasword is incorrect."});
       } else {
+          const token = jwt.sign(
+            { user_id: user },
+            verifyUser.token,
+            {
+              expiresIn: "1h",
+            }
+          );
+         
           let query = `
             SELECT user
             FROM players
@@ -93,16 +108,45 @@ app.post("/login", async (req, res) => {
             WHERE user = ?;
           `
           let getId = await db.get(query, user);
-          res.send(`Welcome ${getId.name}! Your player id is: ${getId.pid.toString()}`);
+          
+          // setEnvValue("JWT_Token",token)
+          // setEnvValue("PID",getId.pid.toString())
+
+          process.env.JWT_Token = token;
+          process.env.PID = getId.pid.toString();
+          res.redirect("/");
+          
+          // res.render('login.ejs', {
+          //   name: getId.name,
+          //   pid: getId.pid.toString(),
+          //   token: token
+          // })
+          // res.send(`Welcome ${getId.name}! Your player id is: ${getId.pid.toString()}\nYour token is: ${token}`);
       }
     }
     db.close();
   } catch (err) {
     console.log(err)
-    res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
+    res.status(SERVER_ERROR);
+    res.render('login.ejs', {message: SERVER_ERROR_MSG});
   }
 })
 
+function setEnvValue(key, value) {
+  // read file from hdd & split if from a linebreak to a array
+  const ENV_VARS = fs.readFileSync("./.env", "utf8").split(os.EOL);
+
+  // find the env we want based on the key
+  const target = ENV_VARS.indexOf(ENV_VARS.find((line) => {
+      return line.match(new RegExp(key));
+  }));
+
+  // replace the key/value with the new value
+  ENV_VARS.splice(target, 1, `${key}=${value}`);
+
+  // write everything back to the file system
+  fs.writeFileSync("./.env", ENV_VARS.join(os.EOL));
+}
 
 /**
  * Establishes and returns a connection to the BigTwos database.
@@ -117,6 +161,6 @@ async function getDBConnection() {
 }
 
 // specify root directory for static files
-app.use(express.static("static"));
+app.use('/', [auth, express.static(path.join(__dirname, "/static"))]);
 const PORT = process.env.PORT || 8080;
 app.listen(PORT);

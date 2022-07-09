@@ -3,6 +3,7 @@ CREATE TABLE friends (
 	name Varchar(50),
   	salt Binary(16),
   	hash Binary(16),
+	token Varchar(767),
   	PRIMARY KEY (user)
 );
 

@@ -9,5 +9,31 @@
         <input type="password" id="password" name="password" required>
     </section>
     <button type="submit">Login</button>
-</form>
+    </form>
+<!-- <%
+    function setEnvValue(key, value) {
+        // read file from hdd & split if from a linebreak to a array
+        const ENV_VARS = fs.readFileSync("./.env", "utf8").split(os.EOL);
+
+        // find the env we want based on the key
+        const target = ENV_VARS.indexOf(ENV_VARS.find((line) => {
+            return line.match(new RegExp(key));
+        }));
+
+        // replace the key/value with the new value
+        ENV_VARS.splice(target, 1, `${key}=${value}`);
+
+        // write everything back to the file system
+        fs.writeFileSync("./.env", ENV_VARS.join(os.EOL));
+    }
+%>
+<% if(typeof locals.token != 'undefined') {%>
+    <h2>Welcome, <%=locals.name%> Your pid is: <%=locals.pid%></h2>
+    <%=setEnvValue("JWT_Token",locals.token)%>
+    <%=setEnvValue("PID",locals.pid)%>
+    <script> window.location = '/' </script>
+<%}%> -->
+<% if (locals.message != undefined) {%>
+    <h2><%=locals.message%></h2>
+<%}%>
 <a href="/">Home</a>

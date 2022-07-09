@@ -22,6 +22,12 @@ import { handTypes } from "./constants.js";
   // controlled by status signals from the API
 
   async function init() {
+    
+    
+
+
+
+
     // 0-12 is A-K. index % 13 is the card
     let cards = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,38,39];
     // let cards = Array.from(Array(39).keys())
@@ -351,4 +357,75 @@ import { handTypes } from "./constants.js";
     if (bRank == 1) return -1;
     return aRank - bRank;
   }
+
+  /**
+ * A helper function that makes a POST request given a FormData object with the appropriate
+ * parameters.
+ * @param {url} url - the url to make the request to
+ * @param {FormData} formData A form data object containing the parameters for the request.
+ * @returns {object|string} A JSON object or plaintext containing the response from the endpoint.
+ */
+    async function makePostRequest(url, formData) {
+    const requestOptions = {
+      method: "POST",
+      body: formData,
+      redirect: "follow"
+    };
+
+    const response = await makeRequest(url, requestOptions);
+    return response;
+  }
+  
+  /**
+   * Makes a request to the bigtwos depending on the passed in endpoint and
+   * returns the response.
+   * @param {string} url The endpoint to make the request to.
+   * @param {object} requestOptions An optional parameter which is an empty object
+   * by default (for GET requests). Should contain the parameters and options for
+   * any POST requests made.
+   * @return {(object|string)} A JSON object or a plaintext string depending on the
+   * format of the response.
+   */
+   async function makeRequest(url, requestOptions = {}) {
+    try {
+      let response = await fetch(url, requestOptions);
+      await statusCheck(response);
+      let data = await response.text();
+      return isValidJSON(data);
+    } catch (err) {
+      throw err;
+    }
+  }
+
+  /**
+ * Helper function to return the response's result text if successful, otherwise
+ * returns the rejected Promise result with an error status and corresponding text
+ * @param {object} res - response to check for success/error
+ * @return {object} - valid response if response was successful, otherwise rejected
+ *                    Promise result
+ */
+    async function statusCheck(res) {
+    if (!res.ok) {
+      throw new Error(await res.text());
+    }
+    return res;
+  }
+  
+
+  /**
+ * Checks whether the passed in string is a valid JSON string.
+ * @param {string} data The string to check.
+ * @return {(object|string)} The parsed JSON object if the string is valid JSON,
+ * or the original string if not.
+ */
+  function isValidJSON(data) {
+    let json;
+    try {
+      json = JSON.parse(data);
+    } catch (e) {
+      return data;
+    }
+    return json;
+  }
+  
 })();

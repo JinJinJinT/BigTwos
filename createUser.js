@@ -17,20 +17,21 @@ async function register() {
       const db = await getDBConnection();
       let query = `
           INSERT INTO friends
-          VALUES (?, ?, ?, ?);
+          VALUES (?, ?, ?, ?, ?);
       `
       let salt = crypto.randomBytes(16).toString('base64');
-      let hash = crypto.createHash('sha256').update("cocknball" + salt).digest('base64');
-      // m1234:cummy => sussy
+      let hash = crypto.createHash('sha256').update("cummy" + salt).digest('base64');
+      let token = crypto.randomBytes(100).toString('base64');
       // marduk5:cocknball => jin terada
-      await db.run(query, "marduk5", "jin terada", salt, hash);
+      // await db.run(query, "marduk5", "jin terada", salt, hash, token);
+      // m1234:cummy => sussy
+      await db.run(query, "m1234", "sussy", salt, hash, token);
       db.close();
     } catch (err) {
       console.log(err)
       res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
     }
 }
-
 
 /**
  * Establishes and returns a connection to the BigTwos database.
