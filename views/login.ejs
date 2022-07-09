@@ -9,7 +9,7 @@
         <input type="password" id="password" name="password" required>
     </section>
     <button type="submit">Login</button>
-    </form>
+</form>
 <!-- <%
     function setEnvValue(key, value) {
         // read file from hdd & split if from a linebreak to a array
@@ -33,7 +33,9 @@
     <%=setEnvValue("PID",locals.pid)%>
     <script> window.location = '/' </script>
 <%}%> -->
-<% if (locals.message != undefined) {%>
-    <h2><%=locals.message%></h2>
-<%}%>
-<a href="/">Home</a>
+<% if (locals.message !=undefined) {%>
+    <h2>
+        <%=locals.message%>
+    </h2>
+    <%}%>
+        <a href="/">Home</a>

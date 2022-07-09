@@ -26,8 +26,8 @@ app.use(express.json()); // built-in middleware
 app.use(multer().none()); // requires the "multer" module
 
 app.get("/login", (req, res) => {
-    res.render('login.ejs');
-})
+  res.render("login.ejs");
+});
 
 /**
  * Endpoint: /yipper/yips
