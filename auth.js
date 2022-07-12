@@ -3,69 +3,70 @@ const jwt = require("jsonwebtoken");
 const sqlite3 = require("sqlite3");
 const sqlite = require("sqlite");
 const dotenv = require("dotenv");
+const res = require("express/lib/response");
 
 // env var access
-dotenv.config({ override: true });
+dotenv.config();
 
 const verifyToken = async (req, res, next) => {
-  let providedToken = process.env.JWT_Token;
-  let pid = process.env.PID;
-  if (!providedToken || !pid) {
-    // return res.status(403).send("A token is required for authentication");
+  const token = req.cookies.access_token;
+  if (!token) {
     return handleRoute(req.originalUrl, res, next, false);
   }
 
   try {
-    const db = await getDBConnection();
-    let query = `
-            SELECT user
-            FROM players
-            WHERE pid=?;
-        `;
-    let getUser = await db.get(query, pid);
-    if (getUser == undefined || !getUser.user) {
-      return handleRoute(req.originalUrl, res, next, false);
-    }
-    let user = getUser.user;
+    const verified = jwt.verify(token, process.env.TOKEN_KEY);
 
-    query = `
-            SELECT token
-            FROM friends
-            WHERE user=?;
-        `;
-    let auth = await db.get(query, user);
-    const verified = jwt.verify(providedToken, auth.token);
-    db.close();
-
-    if (verified) {
-      return handleRoute(req.originalUrl, res, next, true);
-    } else {
-      return handleRoute(req.originalUrl, res, next, false);
+    let request = isPlayerRequest(req);
+    if (request) {
+        req.pid = await request(token, res);
+        return next();
     }
+
+    return handleRoute(req.originalUrl, res, next, verified);
   } catch (err) {
     console.log("error:", err);
-    return res.status(500).send("Server Error in Auth");
+    res.clearCookie("access_token").status(500);
+    return res.redirect("/login");
   }
 };
 
 const handleRoute = (endpoint, res, next, verified) => {
-  if (endpoint === "/") {
-    if (verified) {
-      return next();
-    } else {
-      return res.redirect("/login");
-    }
-  } else if (endpoint === "/login" || endpoint === "/login/") {
-    if (verified) {
-      return res.redirect("/");
-    } else {
-      return next();
-    }
+  if (endpoint === "/" || endpoint.match(/^\/currentPlayer\/?$/)) {
+    return verified ? next() : res.redirect("/login");
+  } else if (endpoint.match(/^\/login\/?$/)) {
+    return verified ? res.redirect("/") : next();
   } else {
     return next();
   }
 };
 
+const isPlayerRequest = (req) => {
+    return req.originalUrl.match(/^\/currentHand\/?$/)
+        ?  getPID
+        :  undefined;
+}
+
+const getPID = async (token, res) => {
+    try {
+        const db = await getDBConnection();
+        let query = `
+            SELECT PID
+            FROM players
+            WHERE token=?;
+        `;
+        let pid = await db.get(query, token);
+        if (!pid) {
+            console.log(pid);
+            return res.status(500).send("Token, user mismatch error");
+        }
+        return pid;
+    } catch (err) {
+        console.log(err);
+        return res.status(500).send("Error occured in Server: getPID");
+    }
+    
+}
 /**
  * Establishes and returns a connection to the BigTwos database.
  * @returns {sqlite3.Database} A connection to the big2.db sqlite3 database.

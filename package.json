@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "cookie-parser": "^1.4.6",
     "deck-of-cards": "^0.1.8",
     "dotenv": "^16.0.1",
     "ejs": "^3.1.8",

@@ -12,6 +12,7 @@ import { handTypes } from "./constants.js";
   let boardHighSuit = -1; // since lowest suit is 0
   let boardScore = 0;
   let playerCanChoose = true; // need to disable card selection when this is false
+  let PID;
 
   let currentHand;
   let currentScore;
@@ -22,10 +23,28 @@ import { handTypes } from "./constants.js";
   // controlled by status signals from the API
 
   async function init() {
-    // 0-12 is A-K. index % 13 is the card
+    // TODO:
+    // Welcome message
+    // start game screen
+    // gameplay api
+    
+    // Go to game page authenticated
+    // Get PID from api
+    // Just make requests...
+    // it goes through auth
+    // sets req.pid internally
+    // does proper move.
+    // we don't need pid on clientside... just the cookie!
+    
+    // V1:
+    // Log in with 2 browsers to test
+    /* 
+     *
+     */
+
+    // 0-12 is A-K. (index + 1) % 13 is the card S->H->C->D
     let cards = [
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-      38, 39
+      20
     ];
     // let cards = Array.from(Array(39).keys())
     // create Deck
