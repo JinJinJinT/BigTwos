@@ -64,7 +64,7 @@ module.exports = class BigTwos {
      * @returns {Set<number> | null} Returns null if the pid does not exist. If it does exist, returns a 
      * Set<number> that represents their deck of cards.
      */
-    get playerCards(pid) {
+    playerCards(pid) {
         let pointer = this.#players;
         for (let i = 0; i < this.#size; i++) {
             if (pointer.pid === pid) return pointer.cards;
@@ -111,7 +111,7 @@ module.exports = class BigTwos {
      * shuffled deck of 54 playing cards.
      */
     #initDeck() {
-        let deck = Array.from(Array(53).keys());
+        let deck = Array.from(Array(52).keys());
         return this.#shuffle(deck);
     }
 
@@ -137,5 +137,18 @@ module.exports = class BigTwos {
         }
       
         return array;
+    }
+
+    toString() {
+        if (!this.#players || !this.#size) {
+            return "undefined game";
+        }
+        let result = "";
+        let pointer = this.#players;
+        for (let i = 0; i < this.#size; i++) {
+            result += `[${pointer.toString()}] ->\n`;
+            pointer = pointer.next;
+        }
+        return result;
     }
 }

@@ -60,45 +60,71 @@ const BigTwos = require("./BigTwos.js");
  */
 // wait for post requests from each player to: move(cards[])
 
-
-// app.get("/getPID", auth, (req, res)=> {
-//   return res.send(req.pid);
-// });
-
+/**
+ * Endpoint: /startGame
+ * Type: GET
+ * Return format: text
+ * Authorization from log-in required.
+ * Starts a new game of BigTwos with the currently logged-in and ready players.
+ */
 app.get("/startGame", auth, async (req, res) => {
   try {
-    const db = await getDBConnection();
-    let pids = db.all(`
+    if (!game) {
+      const db = await getDBConnection();
+      let pids = await db.all(`
       SELECT pid
-      FROM players;
-    `);
-    game = new BigTwos(pids);
-    console.log("Started new game of BigTwos...")
+        FROM players;
+      `);
+      pids = pids.map(row=>row.pid);
+      game = new BigTwos(pids);
+      res.send("Started new game of BigTwos...");
+      console.log(game.toString());
+    } else {
+      res.send("A game already exists...")
+    }
   } catch (err) {
     console.log(err);
     res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
   }
 });
 
+/**
+ * Endpoint: /currentPlayer
+ * Type: GET
+ * Return format: text
+ * Authorization from log-in required.
+ * Returns the pid of the authorized player making the request.
+ */
 app.get("/currentPlayer", auth, (req,res) => {
   if (!game) {
     res.status(INVALID_STATE_ERROR).send("Invalid request. There is no game in progress.");
   } else {
-    res.send(game.currentPlayer());
+    res.send(game.currentPlayer);
   }
 });
 
+/**
+ * Endpoint: /currentHand
+ * Type: GET
+ * Return format: JSON
+ * Authorization from log-in required.
+ * Returns a JSON of the set of cards for the authorized player making the request.
+ */
 app.get("/currentHand", auth, (req, res)=> {
   if (!game) {
     res.status(INVALID_STATE_ERROR).send("Invalid request. There is no game in progress.");
   } else {
-    /**@type {Set<number>}*/
-    let deckSet = game.playerCards(res.pid);
-    if (!deckSet) {
-      res.status(SERVER_ERROR_MSG).send("Hand was undefined. Internal PID mismatch.");
+    if (!res.locals.pid) {
+      res.status(SERVER_ERROR).send("PID not found");
     } else {
-      res.type("json");
-      res.send(JSON.stringify([...deckSet]));
+      /**@type {Set<number>}*/
+      let deckSet = game.playerCards(res.locals.pid);
+      if (!deckSet) {
+          res.status(SERVER_ERROR).send("Hand was undefined. Internal PID mismatch.");
+        } else {
+          res.type("json");
+          res.send(JSON.stringify([...deckSet]));
+      }
     }
   }
 });

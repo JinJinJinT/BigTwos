@@ -48,4 +48,8 @@ module.exports = class Player {
     removeCards(cardsToRemove) {
         cardsToRemove.forEach(card => this.cards.remove(card));
     }
+
+    toString() {
+        return `PID: ${this.pid} Cards: ${[...this.cards]}`
+    }
 }

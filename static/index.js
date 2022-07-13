@@ -41,44 +41,51 @@ import { handTypes } from "./constants.js";
     /* 
      *
      */
-
-    // 0-12 is A-K. (index + 1) % 13 is the card S->H->C->D
-    let cards = [
-      20
-    ];
-    // let cards = Array.from(Array(39).keys())
-    // create Deck
-    let deck = Deck(cards);
-
-    //let card = deck.cards[0];
-    // deck.mount(container);
-    deck.flip();
-    // deck.shuffle();
-    // deck.cards[0].enableDragging();
-    // deck.cards[1].enableDragging();
-
-    // let container = document.createElement("div");
-    // deck.cards[1].mount(container);
-    // container.classList.add("card-slot");
-    // document.querySelector(".interact").appendChild(container);
-
-    // player 1
-    for (let i = 0; i < deck.cards.length; i++) {
-      //   deck.cards[i].enableDragging();
-      //   deck.cards[i + 1].enableDragging();
-      p1Cards.push(deck.cards[i]);
-      //   p2Cards.push(deck.cards[i + 1]);
+    let deck = await initDeck();
+    if (deck) {
+      deck.flip();
+      // deck.shuffle();
+      // deck.cards[0].enableDragging();
+      // deck.cards[1].enableDragging();
+  
+      // let container = document.createElement("div");
+      // deck.cards[1].mount(container);
+      // container.classList.add("card-slot");
+      // document.querySelector(".interact").appendChild(container);
+  
+      for (let i = 0; i < deck.cards.length; i++) {
+        //   deck.cards[i].enableDragging();
+        //   deck.cards[i + 1].enableDragging();
+        p1Cards.push(deck.cards[i]);
+        //   p2Cards.push(deck.cards[i + 1]);
+      }
+      p1Cards.sort(sort);
+      populateHand(p1Cards);
+  
+      window.addEventListener("resize", () => updateCardLocation(p1Cards));
+      let button = document.getElementById("move");
+      button.addEventListener("click", makeMove);
+      button.disabled = true;
+    } else {
+      throw new Error("Deck init failed");
     }
-    p1Cards.sort(sort); //MAKE SURE TO PUT THIS BACK
+  }
 
-    console.log(p1Cards);
-
-    populateHand(p1Cards);
-
-    window.addEventListener("resize", () => updateCardLocation(p1Cards));
-    let button = document.getElementById("move");
-    button.addEventListener("click", makeMove);
-    button.disabled = true;
+  async function initDeck() {
+    try {
+      // init the game
+      let text = await makeRequest("/startGame");
+      console.log(text);
+  
+      let currentPlayer = await makeRequest("/currentPlayer");
+      console.log(`Current player is: ${currentPlayer}`);
+  
+      /**@type {number[]} */
+      let cards = await makeRequest("/currentHand");
+      return Deck(cards);
+    } catch(err) {
+      return null;
+    }
   }
 
   async function populateHand(p1Cards) {
@@ -410,7 +417,7 @@ import { handTypes } from "./constants.js";
    * parameters.
    * @param {url} url - the url to make the request to
    * @param {FormData} formData A form data object containing the parameters for the request.
-   * @returns {object|string} A JSON object or plaintext containing the response from the endpoint.
+   * @returns {Object|string} A JSON object or plaintext containing the response from the endpoint.
    */
   async function makePostRequest(url, formData) {
     const requestOptions = {
@@ -427,7 +434,7 @@ import { handTypes } from "./constants.js";
    * Makes a request to the bigtwos depending on the passed in endpoint and
    * returns the response.
    * @param {string} url The endpoint to make the request to.
-   * @param {object} requestOptions An optional parameter which is an empty object
+   * @param {Object.<string, string|FormData>} requestOptions An optional parameter which is an empty object
    * by default (for GET requests). Should contain the parameters and options for
    * any POST requests made.
    * @return {(object|string)} A JSON object or a plaintext string depending on the
@@ -453,7 +460,12 @@ import { handTypes } from "./constants.js";
    */
   async function statusCheck(res) {
     if (!res.ok) {
-      throw new Error(await res.text());
+      if(res.status == 505) {
+        throw new Error("PID Mismatch OR TokenExpired");
+      } else {
+        let text = await res.text();
+        throw new Error("status error:\n" + text);
+      }
     }
     return res;
   }

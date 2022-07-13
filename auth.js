@@ -4,6 +4,7 @@ const sqlite3 = require("sqlite3");
 const sqlite = require("sqlite");
 const dotenv = require("dotenv");
 const res = require("express/lib/response");
+const { TokenExpiredError } = require("jsonwebtoken");
 
 // env var access
 dotenv.config();
@@ -17,17 +18,20 @@ const verifyToken = async (req, res, next) => {
   try {
     const verified = jwt.verify(token, process.env.TOKEN_KEY);
 
-    let request = isPlayerRequest(req);
-    if (request) {
-        req.pid = await request(token, res);
+    const requestPID = isPlayerRequest(req);
+    if (requestPID) {
+        res.locals.pid = await requestPID(token, res);
         return next();
     }
 
     return handleRoute(req.originalUrl, res, next, verified);
   } catch (err) {
-    console.log("error:", err);
-    res.clearCookie("access_token").status(500);
-    return res.redirect("/login");
+    if (err instanceof TokenExpiredError || err.name == "NoMatchingPIDForTokenError") {
+        res.clearCookie("access_token").status(505);
+        return res.redirect("/login");
+    } else {
+        return next("Error: " + err);
+    }
   }
 };
 
@@ -57,13 +61,12 @@ const getPID = async (token, res) => {
         `;
         let pid = await db.get(query, token);
         if (!pid) {
-            console.log(pid);
-            return res.status(500).send("Token, user mismatch error");
+           noMatchingPIDForTokenError();
         }
-        return pid;
+        return pid.pid;
     } catch (err) {
-        console.log(err);
-        return res.status(500).send("Error occured in Server: getPID");
+        throw err;
+        //return res.status(500).send("Error occured in Server: getPID");
     }
     
 }
@@ -77,6 +80,14 @@ async function getDBConnection() {
     driver: sqlite3.Database
   });
   return db;
+}
+
+/** ERRORS */
+function noMatchingPIDForTokenError() {
+  throw {
+    name: "NoMatchingPIDForTokenError",
+    message: "PID doesn't exist for user's session, please log-in again."
+  };
 }
 
 module.exports = verifyToken;
