@@ -1,5 +1,9 @@
 const Player = require("./Player.js");
 
+
+// MAYBE ADD AN addPlayer(pid) method.
+
+
 /**
  * The game manager for a game of BigTwos. Keeps track of the game data
  * and behavior for the API.

@@ -3,8 +3,6 @@ const jwt = require("jsonwebtoken");
 const sqlite3 = require("sqlite3");
 const sqlite = require("sqlite");
 const dotenv = require("dotenv");
-const res = require("express/lib/response");
-const { TokenExpiredError } = require("jsonwebtoken");
 
 // env var access
 dotenv.config();
@@ -20,18 +18,26 @@ const verifyToken = async (req, res, next) => {
 
     const requestPID = isPlayerRequest(req);
     if (requestPID) {
-        res.locals.pid = await requestPID(token, res);
+        res.locals.pid = await requestPID(token);
         return next();
     }
 
     return handleRoute(req.originalUrl, res, next, verified);
   } catch (err) {
-    if (err instanceof TokenExpiredError || err.name == "NoMatchingPIDForTokenError") {
-        res.clearCookie("access_token").status(505);
-        return res.redirect("/login");
-    } else {
-        return next("Error: " + err);
-    }
+    console.log("clearing cookie");
+    res.clearCookie("access_token");
+    res.status(402).send("Auth expired: Logged-out");
+    // if (Array.isArray(err)) {
+    //     err.push("Token could not be verified");
+    //     if (err.some(e=>e instanceof TokenExpiredError || (e.name && e.name === "NoMatchingPIDForTokenError"))) {
+    //         res.clearCookie("access_token").status(504);
+    //     }
+    // } else {
+    //     let eList = [];
+    //     eList.push(err);
+    //     eList.push("Token could not be verified");
+    // }
+    // return next(JSON.stringify(err));
   }
 };
 
@@ -51,7 +57,7 @@ const isPlayerRequest = (req) => {
         :  undefined;
 }
 
-const getPID = async (token, res) => {
+const getPID = async (token) => {
     try {
         const db = await getDBConnection();
         let query = `
@@ -61,7 +67,7 @@ const getPID = async (token, res) => {
         `;
         let pid = await db.get(query, token);
         if (!pid) {
-           noMatchingPIDForTokenError();
+           throw "PID doesn't exist for user's session, please log-in again."
         }
         return pid.pid;
     } catch (err) {
@@ -80,14 +86,6 @@ async function getDBConnection() {
     driver: sqlite3.Database
   });
   return db;
-}
-
-/** ERRORS */
-function noMatchingPIDForTokenError() {
-  throw {
-    name: "NoMatchingPIDForTokenError",
-    message: "PID doesn't exist for user's session, please log-in again."
-  };
 }
 
 module.exports = verifyToken;

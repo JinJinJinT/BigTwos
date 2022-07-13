@@ -16,8 +16,6 @@ const multer = require("multer");
 const crypto = require("crypto");
 
 const path = require("path");
-const fs = require("fs");
-const os = require("os");
 
 const dotenv = require("dotenv");
 const jwt = require("jsonwebtoken");
@@ -72,7 +70,7 @@ app.get("/startGame", auth, async (req, res) => {
     if (!game) {
       const db = await getDBConnection();
       let pids = await db.all(`
-      SELECT pid
+        SELECT pid
         FROM players;
       `);
       pids = pids.map(row=>row.pid);
@@ -80,7 +78,8 @@ app.get("/startGame", auth, async (req, res) => {
       res.send("Started new game of BigTwos...");
       console.log(game.toString());
     } else {
-      res.send("A game already exists...")
+      res.send("A game already exists...");
+      // functionality to add new players
     }
   } catch (err) {
     console.log(err);
@@ -114,16 +113,17 @@ app.get("/currentHand", auth, (req, res)=> {
   if (!game) {
     res.status(INVALID_STATE_ERROR).send("Invalid request. There is no game in progress.");
   } else {
+    console.log("pid in /cH",res.locals.pid);
     if (!res.locals.pid) {
       res.status(SERVER_ERROR).send("PID not found");
     } else {
       /**@type {Set<number>}*/
       let deckSet = game.playerCards(res.locals.pid);
       if (!deckSet) {
-          res.status(SERVER_ERROR).send("Hand was undefined. Internal PID mismatch.");
-        } else {
-          res.type("json");
-          res.send(JSON.stringify([...deckSet]));
+        res.status(SERVER_ERROR).send("Hand was undefined. Internal PID mismatch.");
+      } else {
+        res.type("json");
+        res.send(JSON.stringify([...deckSet]));
       }
     }
   }
@@ -195,6 +195,14 @@ app.post("/login", async (req, res) => {
             `;
 
           await db.run(query, [verifyUser.name, playerId, user, token]);
+        } else {
+          // already logged-in
+          query = `
+                UPDATE players
+                SET token=?
+                WHERE user=?;
+          `;
+          await db.run(query,[token, user]);
         }
 
         res.cookie("access_token", token, {

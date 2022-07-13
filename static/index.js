@@ -28,20 +28,21 @@ import { handTypes } from "./constants.js";
     // start game screen
     // gameplay api
     
-    // Go to game page authenticated
-    // Get PID from api
-    // Just make requests...
-    // it goes through auth
-    // sets req.pid internally
-    // does proper move.
-    // we don't need pid on clientside... just the cookie!
-    
     // V1:
     // Log in with 2 browsers to test
-    /* 
+    /* BUGS:
+     * Need to restart game for newly joined players since BigTwos object isn't updated to the db.
+     * If players join already with cookies, they get verified despite
+     * not being in the db and get stuck in an empty game screen.
      *
      */
-    let deck = await initDeck();
+    let deck;
+    try {
+      deck = await initDeck();
+    } catch (err) {
+      console.error("initDeck fail:", err);
+    }
+    
     if (deck) {
       deck.flip();
       // deck.shuffle();
@@ -66,14 +67,13 @@ import { handTypes } from "./constants.js";
       let button = document.getElementById("move");
       button.addEventListener("click", makeMove);
       button.disabled = true;
-    } else {
-      throw new Error("Deck init failed");
     }
   }
 
   async function initDeck() {
     try {
       // init the game
+      // THIS ASSUMES BOTH PLAYERS ARE ALREADY LOGGED IN
       let text = await makeRequest("/startGame");
       console.log(text);
   
@@ -82,9 +82,11 @@ import { handTypes } from "./constants.js";
   
       /**@type {number[]} */
       let cards = await makeRequest("/currentHand");
+      console.log("successfull initDeck")
       return Deck(cards);
     } catch(err) {
-      return null;
+      console.log("initDeck failed, throwing error")
+      throw err;
     }
   }
 
@@ -445,6 +447,7 @@ import { handTypes } from "./constants.js";
       let response = await fetch(url, requestOptions);
       await statusCheck(response);
       let data = await response.text();
+      console.log("successfull request");
       return isValidJSON(data);
     } catch (err) {
       throw err;
@@ -459,15 +462,22 @@ import { handTypes } from "./constants.js";
    *                    Promise result
    */
   async function statusCheck(res) {
-    if (!res.ok) {
-      if(res.status == 505) {
-        throw new Error("PID Mismatch OR TokenExpired");
-      } else {
+    console.log("in status check");
+    try {
+      if (!res.ok) {
+        console.log("res not okay")
         let text = await res.text();
-        throw new Error("status error:\n" + text);
+        if(res.status == 402) {
+          window.location.reload();
+        } else {
+          throw new Error("non 402 error:\n" + text);
+        }
       }
+      console.log("status good");
+      return res;
+    } catch (err) {
+      throw err;
     }
-    return res;
   }
 
   /**
