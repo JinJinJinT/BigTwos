@@ -14,19 +14,22 @@ const verifyToken = async (req, res, next) => {
   }
 
   try {
-    const verified = jwt.verify(token, process.env.TOKEN_KEY);
+    // check if token is in db before verifying
+    const verify1 = await tokenExists(token);
+    const verify2 = jwt.verify(token, process.env.TOKEN_KEY);
+    const verified = verify1 && verify2;
 
+    // if we need to pass the pid to app.js or not.
     const requestPID = isPlayerRequest(req);
     if (requestPID) {
         res.locals.pid = await requestPID(token);
         return next();
     }
-
     return handleRoute(req.originalUrl, res, next, verified);
   } catch (err) {
     console.log("clearing cookie");
     res.clearCookie("access_token");
-    res.status(402).send("Auth expired: Logged-out");
+    res.status(401).send("Auth expired: Logged-out");
     // if (Array.isArray(err)) {
     //     err.push("Token could not be verified");
     //     if (err.some(e=>e instanceof TokenExpiredError || (e.name && e.name === "NoMatchingPIDForTokenError"))) {
@@ -40,6 +43,22 @@ const verifyToken = async (req, res, next) => {
     // return next(JSON.stringify(err));
   }
 };
+
+const tokenExists = async token => {
+  try {
+    const db = await getDBConnection();
+    let query = `
+    SELECT user
+    FROM players
+      WHERE token=?;
+    `;
+    let doesUserExist = await db.get(query,token);
+    return doesUserExist != undefined;
+  } catch (err) {
+    throw err;
+  }
+}
+
 
 const handleRoute = (endpoint, res, next, verified) => {
   if (endpoint === "/" || endpoint.match(/^\/currentPlayer\/?$/)) {

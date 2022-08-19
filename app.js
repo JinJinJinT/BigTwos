@@ -87,6 +87,11 @@ app.get("/startGame", auth, async (req, res) => {
   }
 });
 
+// TODO: /MAKEMOVE
+// input: selected cards, (infer player id)
+
+// current board reflects other player's moves when it's not your turn?
+// No, board always only reflects what the /currentBoard endpoint returns
 /**
  * Endpoint: /currentPlayer
  * Type: GET

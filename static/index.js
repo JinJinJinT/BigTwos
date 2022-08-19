@@ -32,9 +32,13 @@ import { handTypes } from "./constants.js";
     // Log in with 2 browsers to test
     /* BUGS:
      * Need to restart game for newly joined players since BigTwos object isn't updated to the db.
+     * Solution: 1. startGame adds you to the BigTwos game
+     *           2. login->ready screen->once all ready: add all to BigTwos and startGame.
+
+
      * If players join already with cookies, they get verified despite
      * not being in the db and get stuck in an empty game screen.
-     *
+     * Solution: Add a check that a user to any route (in auth) MUST also match db token.
      */
     let deck;
     try {
@@ -467,8 +471,10 @@ import { handTypes } from "./constants.js";
       if (!res.ok) {
         console.log("res not okay")
         let text = await res.text();
+        console.log(text);
         if(res.status == 402) {
-          window.location.reload();
+          console.log("402");
+          // window.location.reload();
         } else {
           throw new Error("non 402 error:\n" + text);
         }
