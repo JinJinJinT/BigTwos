@@ -10,7 +10,7 @@ dotenv.config();
 const verifyToken = async (req, res, next) => {
   const token = req.cookies.access_token;
   if (!token) {
-    return handleRoute(req.originalUrl, res, next, false);
+    return handleRoute(req, res, next, false);
   }
 
   try {
@@ -25,11 +25,14 @@ const verifyToken = async (req, res, next) => {
       res.locals.pid = await requestPID(token);
       return next();
     }
-    return handleRoute(req.originalUrl, res, next, verified);
+    return handleRoute(req, res, next, verified);
   } catch (err) {
+    console.log(err);
     console.log("clearing cookie");
     res.clearCookie("access_token");
-    res.status(401).send("Auth expired: Logged-out");
+    res
+      .status(401)
+      .send("Auth expired: Logged-out. Please refresh and log-in again.");
     // if (Array.isArray(err)) {
     //     err.push("Token could not be verified");
     //     if (err.some(e=>e instanceof TokenExpiredError || (e.name && e.name === "NoMatchingPIDForTokenError"))) {
@@ -60,14 +63,24 @@ const tokenExists = async token => {
 };
 
 // prettier-ignore
-const handleRoute = (endpoint, res, next, verified) => {
+const handleRoute = (req, res, next, verified) => {
+  let endpoint = req.originalUrl;
   if (!verified) return endpoint.match(/^\/login\/?$/) ? next() : res.redirect("/login");
 
-  if (
-    endpoint.match(/^\/waitroom\/?$/)     ||
-    endpoint.match(/^\/currentHand\/?$/)  ||
-    endpoint.match(/^\/currentPlayer\/?$/)
-  ) return next();
+  const token = req.cookies.game_cookie;
+  if (token) {
+    let allowGame = jwt.verify(token, process.env.GAME_KEY);
+
+    if (allowGame) {
+      if (endpoint.match(/^\/waitroom\/?$/)) return res.redirect("/");
+      return next();
+    }
+  }
+
+  // if (
+  //   endpoint.match(/^\/waitroom\/?$/)     ||
+  //   endpoint.match(/^\/currentPlayer\/?$/)
+  // ) return next();
 
   if (endpoint == '/' || endpoint.match(/^\/login\/?$/)) return res.redirect("/waitroom");
 
@@ -77,7 +90,8 @@ const handleRoute = (endpoint, res, next, verified) => {
 const isPlayerRequest = req => {
   if (
     req.originalUrl.match(/^\/currentHand\/?$/) ||
-    req.originalUrl.match(/^\/playerReady\/?$/)
+    req.originalUrl.match(/^\/playerReady\/?$/) ||
+    req.originalUrl.match(/^\/gameStarted\/?$/)
   )
     return getPID;
   return undefined;

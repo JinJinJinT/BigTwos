@@ -39,7 +39,7 @@ app.use(express.json()); // built-in middleware
 app.use(multer().none()); // requires the "multer" module
 
 /**@type {Set} */
-let playersReady;
+let playersReady = new Set();
 
 /** An instance of the game object. Lifecycle (BigTwos.js)
  * @type {BigTwos}
@@ -68,7 +68,7 @@ const BigTwos = require("./BigTwos.js");
  * Authorization from log-in required.
  * Starts a new game of BigTwos with the currently logged-in and ready players.
  */
-app.get("/startGame", auth, async (req, res) => {
+async function startGame() {
   try {
     if (!game) {
       const db = await getDBConnection();
@@ -78,17 +78,18 @@ app.get("/startGame", auth, async (req, res) => {
       `);
       pids = pids.map(row => row.pid);
       game = new BigTwos(pids);
-      res.send("Started new game of BigTwos...");
+      // res.send("Started new game of BigTwos...");
       console.log(game.toString());
     } else {
-      res.send("A game already exists...");
+      console.log("A game already exists...");
+      // res.send("A game already exists... restarting the game");
       // functionality to add new players
     }
   } catch (err) {
     console.log(err);
-    res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
+    // res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
   }
-});
+}
 
 // TODO: /MAKEMOVE
 // input: selected cards, (infer player id)
@@ -143,24 +144,42 @@ app.get("/currentHand", auth, (req, res) => {
   }
 });
 
+app.get("/players", async (req, res) => {
+  res.send([...playersReady]);
+});
+
 app.get("/waitroom", auth, (req, res) => {
-  if (!game) res.render("waiting-room.html");
+  if (!game) res.render("waiting-room.ejs");
   else res.redirect("/");
 });
 
-app.get("/playerReady", auth, async (req, res) => {
+app.get("/playerReady", auth, (req, res) => {
   playersReady.add(res.locals.pid);
   res.send(`Player ${res.locals.pid} is ready!`);
+  if (playersReady.size == 2) startGame();
 });
 
-app.get("/gameStarted", async (req, res) => {
-  let ready = playersReady.size == 2;
-  response = {
-    gameStarted: ready,
-    readyPlayers: playersReady
+app.get("/gameStarted", auth, async (req, res) => {
+  let ready = playersReady && playersReady.size == 2;
+  let response = {
+    readyPlayers: [...playersReady]
   };
-  res.type("json");
-  res.send(JSON.stringify(response));
+
+  if (ready) {
+    const token = jwt.sign({ pid: res.locals.pid }, process.env.GAME_KEY, {
+      expiresIn: "30m" // make 30 min
+    });
+    res.cookie("game_cookie", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production"
+    });
+
+    // MAKE SURE TO DELETE THIS COOKIE ONCE GAME ENDS
+    res.redirect("/");
+  } else {
+    res.type("json");
+    res.send(JSON.stringify(response));
+  }
 });
 
 app.get("/login", auth, (req, res) => {

@@ -82,8 +82,8 @@ import { makeRequest } from "./apiFunctions.js";
     try {
       // init the game
       // THIS ASSUMES BOTH PLAYERS ARE ALREADY LOGGED IN
-      let text = await makeRequest("/startGame");
-      console.log(text);
+      // let text = await makeRequest("/startGame");
+      // console.log(text);
 
       let currentPlayer = await makeRequest("/currentPlayer");
       console.log(`Current player is: ${currentPlayer}`);
