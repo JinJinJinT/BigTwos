@@ -12,6 +12,6 @@ CREATE TABLE players (
   	pid varchar(10),
 	token Varchar(767),
   	cardsLeft int,
-  	nextPlayer,
+  	nextPlayer varchar(10),
   	PRIMARY KEY (pid, user)
 );

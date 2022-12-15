@@ -38,6 +38,9 @@ app.use(express.json()); // built-in middleware
 // for multipart/form-data (required with FormData)
 app.use(multer().none()); // requires the "multer" module
 
+/**@type {Set} */
+let playersReady;
+
 /** An instance of the game object. Lifecycle (BigTwos.js)
  * @type {BigTwos}
  */
@@ -51,8 +54,8 @@ const BigTwos = require("./BigTwos.js");
 /* Player {
  *  List<cards> cards
  *  Player next
- *  
- *  makeMove(List<cards>) subtract cards with passed in cards  
+ *
+ *  makeMove(List<cards>) subtract cards with passed in cards
  * }
  *
  */
@@ -73,7 +76,7 @@ app.get("/startGame", auth, async (req, res) => {
         SELECT pid
         FROM players;
       `);
-      pids = pids.map(row=>row.pid);
+      pids = pids.map(row => row.pid);
       game = new BigTwos(pids);
       res.send("Started new game of BigTwos...");
       console.log(game.toString());
@@ -99,9 +102,11 @@ app.get("/startGame", auth, async (req, res) => {
  * Authorization from log-in required.
  * Returns the pid of the authorized player making the request.
  */
-app.get("/currentPlayer", auth, (req,res) => {
+app.get("/currentPlayer", auth, (req, res) => {
   if (!game) {
-    res.status(INVALID_STATE_ERROR).send("Invalid request. There is no game in progress.");
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
   } else {
     res.send(game.currentPlayer);
   }
@@ -114,24 +119,48 @@ app.get("/currentPlayer", auth, (req,res) => {
  * Authorization from log-in required.
  * Returns a JSON of the set of cards for the authorized player making the request.
  */
-app.get("/currentHand", auth, (req, res)=> {
+app.get("/currentHand", auth, (req, res) => {
   if (!game) {
-    res.status(INVALID_STATE_ERROR).send("Invalid request. There is no game in progress.");
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
   } else {
-    console.log("pid in /cH",res.locals.pid);
+    console.log("pid in /cH", res.locals.pid);
     if (!res.locals.pid) {
       res.status(SERVER_ERROR).send("PID not found");
     } else {
       /**@type {Set<number>}*/
       let deckSet = game.playerCards(res.locals.pid);
       if (!deckSet) {
-        res.status(SERVER_ERROR).send("Hand was undefined. Internal PID mismatch.");
+        res
+          .status(SERVER_ERROR)
+          .send("Hand was undefined. Internal PID mismatch.");
       } else {
         res.type("json");
         res.send(JSON.stringify([...deckSet]));
       }
     }
   }
+});
+
+app.get("/waitroom", auth, (req, res) => {
+  if (!game) res.render("waiting-room.html");
+  else res.redirect("/");
+});
+
+app.get("/playerReady", auth, async (req, res) => {
+  playersReady.add(res.locals.pid);
+  res.send(`Player ${res.locals.pid} is ready!`);
+});
+
+app.get("/gameStarted", async (req, res) => {
+  let ready = playersReady.size == 2;
+  response = {
+    gameStarted: ready,
+    readyPlayers: playersReady
+  };
+  res.type("json");
+  res.send(JSON.stringify(response));
 });
 
 app.get("/login", auth, (req, res) => {
@@ -207,15 +236,14 @@ app.post("/login", async (req, res) => {
                 SET token=?
                 WHERE user=?;
           `;
-          await db.run(query,[token, user]);
+          await db.run(query, [token, user]);
         }
 
         res.cookie("access_token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-        })
+          secure: process.env.NODE_ENV === "production"
+        });
         res.redirect("/");
-        
 
         // res.render('login.ejs', {
         //   name: getId.name,
@@ -232,7 +260,6 @@ app.post("/login", async (req, res) => {
     res.render("login.ejs", { message: SERVER_ERROR_MSG });
   }
 });
-
 
 /**
  * Establishes and returns a connection to the BigTwos database.

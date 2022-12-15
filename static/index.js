@@ -1,5 +1,6 @@
 ("use strict");
 import { handTypes } from "./constants.js";
+import { makeRequest } from "./apiFunctions.js";
 
 (function () {
   window.addEventListener("load", init);
@@ -27,7 +28,10 @@ import { handTypes } from "./constants.js";
     // Welcome message
     // start game screen
     // gameplay api
-    
+
+    // TODO:
+    // create a start-game loading screen after login that displays all logged in players
+
     // V1:
     // Log in with 2 browsers to test
     /* BUGS:
@@ -46,18 +50,18 @@ import { handTypes } from "./constants.js";
     } catch (err) {
       console.error("initDeck fail:", err);
     }
-    
+
     if (deck) {
       deck.flip();
       // deck.shuffle();
       // deck.cards[0].enableDragging();
       // deck.cards[1].enableDragging();
-  
+
       // let container = document.createElement("div");
       // deck.cards[1].mount(container);
       // container.classList.add("card-slot");
       // document.querySelector(".interact").appendChild(container);
-  
+
       for (let i = 0; i < deck.cards.length; i++) {
         //   deck.cards[i].enableDragging();
         //   deck.cards[i + 1].enableDragging();
@@ -66,7 +70,7 @@ import { handTypes } from "./constants.js";
       }
       p1Cards.sort(sort);
       populateHand(p1Cards);
-  
+
       window.addEventListener("resize", () => updateCardLocation(p1Cards));
       let button = document.getElementById("move");
       button.addEventListener("click", makeMove);
@@ -80,16 +84,16 @@ import { handTypes } from "./constants.js";
       // THIS ASSUMES BOTH PLAYERS ARE ALREADY LOGGED IN
       let text = await makeRequest("/startGame");
       console.log(text);
-  
+
       let currentPlayer = await makeRequest("/currentPlayer");
       console.log(`Current player is: ${currentPlayer}`);
-  
+
       /**@type {number[]} */
       let cards = await makeRequest("/currentHand");
-      console.log("successfull initDeck")
+      console.log("successfull initDeck");
       return Deck(cards);
-    } catch(err) {
-      console.log("initDeck failed, throwing error")
+    } catch (err) {
+      console.log("initDeck failed, throwing error");
       throw err;
     }
   }
@@ -416,89 +420,5 @@ import { handTypes } from "./constants.js";
     if (aRank == 1) return 1;
     if (bRank == 1) return -1;
     return aRank - bRank;
-  }
-
-  /**
-   * A helper function that makes a POST request given a FormData object with the appropriate
-   * parameters.
-   * @param {url} url - the url to make the request to
-   * @param {FormData} formData A form data object containing the parameters for the request.
-   * @returns {Object|string} A JSON object or plaintext containing the response from the endpoint.
-   */
-  async function makePostRequest(url, formData) {
-    const requestOptions = {
-      method: "POST",
-      body: formData,
-      redirect: "follow"
-    };
-
-    const response = await makeRequest(url, requestOptions);
-    return response;
-  }
-
-  /**
-   * Makes a request to the bigtwos depending on the passed in endpoint and
-   * returns the response.
-   * @param {string} url The endpoint to make the request to.
-   * @param {Object.<string, string|FormData>} requestOptions An optional parameter which is an empty object
-   * by default (for GET requests). Should contain the parameters and options for
-   * any POST requests made.
-   * @return {(object|string)} A JSON object or a plaintext string depending on the
-   * format of the response.
-   */
-  async function makeRequest(url, requestOptions = {}) {
-    try {
-      let response = await fetch(url, requestOptions);
-      await statusCheck(response);
-      let data = await response.text();
-      console.log("successfull request");
-      return isValidJSON(data);
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  /**
-   * Helper function to return the response's result text if successful, otherwise
-   * returns the rejected Promise result with an error status and corresponding text
-   * @param {object} res - response to check for success/error
-   * @return {object} - valid response if response was successful, otherwise rejected
-   *                    Promise result
-   */
-  async function statusCheck(res) {
-    console.log("in status check");
-    try {
-      if (!res.ok) {
-        console.log("res not okay")
-        let text = await res.text();
-        console.log(text);
-        if(res.status == 402) {
-          console.log("402");
-          // window.location.reload();
-        } else {
-          throw new Error("non 402 error:\n" + text);
-        }
-      }
-      console.log("status good");
-      return res;
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  /**
-   * Checks whether the passed in string is a valid JSON string.
-   * @param {string} data The string to check.
-   * @return {(object|string)} The parsed JSON object if the string is valid JSON,
-   * or the original string if not.
-   */
-  function isValidJSON(data) {
-    let json;
-    try {
-      json = JSON.parse(data);
-    } catch (e) {
-      return data;
-    }
-    return json;
   }
 })();

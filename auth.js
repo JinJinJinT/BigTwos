@@ -22,8 +22,8 @@ const verifyToken = async (req, res, next) => {
     // if we need to pass the pid to app.js or not.
     const requestPID = isPlayerRequest(req);
     if (requestPID) {
-        res.locals.pid = await requestPID(token);
-        return next();
+      res.locals.pid = await requestPID(token);
+      return next();
     }
     return handleRoute(req.originalUrl, res, next, verified);
   } catch (err) {
@@ -52,49 +52,55 @@ const tokenExists = async token => {
     FROM players
       WHERE token=?;
     `;
-    let doesUserExist = await db.get(query,token);
+    let doesUserExist = await db.get(query, token);
     return doesUserExist != undefined;
   } catch (err) {
     throw err;
   }
-}
-
-
-const handleRoute = (endpoint, res, next, verified) => {
-  if (endpoint === "/" || endpoint.match(/^\/currentPlayer\/?$/)) {
-    return verified ? next() : res.redirect("/login");
-  } else if (endpoint.match(/^\/login\/?$/)) {
-    return verified ? res.redirect("/") : next();
-  } else {
-    return next();
-  }
 };
 
-const isPlayerRequest = (req) => {
-    return req.originalUrl.match(/^\/currentHand\/?$/)
-        ?  getPID
-        :  undefined;
-}
+// prettier-ignore
+const handleRoute = (endpoint, res, next, verified) => {
+  if (!verified) return endpoint.match(/^\/login\/?$/) ? next() : res.redirect("/login");
 
-const getPID = async (token) => {
-    try {
-        const db = await getDBConnection();
-        let query = `
+  if (
+    endpoint.match(/^\/waitroom\/?$/)     ||
+    endpoint.match(/^\/currentHand\/?$/)  ||
+    endpoint.match(/^\/currentPlayer\/?$/)
+  ) return next();
+
+  if (endpoint == '/' || endpoint.match(/^\/login\/?$/)) return res.redirect("/waitroom");
+
+  return next();
+};
+
+const isPlayerRequest = req => {
+  if (
+    req.originalUrl.match(/^\/currentHand\/?$/) ||
+    req.originalUrl.match(/^\/playerReady\/?$/)
+  )
+    return getPID;
+  return undefined;
+};
+
+const getPID = async token => {
+  try {
+    const db = await getDBConnection();
+    let query = `
             SELECT PID
             FROM players
             WHERE token=?;
         `;
-        let pid = await db.get(query, token);
-        if (!pid) {
-           throw "PID doesn't exist for user's session, please log-in again."
-        }
-        return pid.pid;
-    } catch (err) {
-        throw err;
-        //return res.status(500).send("Error occured in Server: getPID");
+    let pid = await db.get(query, token);
+    if (!pid) {
+      throw "PID doesn't exist for user's session, please log-in again.";
     }
-    
-}
+    return pid.pid;
+  } catch (err) {
+    throw err;
+    //return res.status(500).send("Error occured in Server: getPID");
+  }
+};
 /**
  * Establishes and returns a connection to the BigTwos database.
  * @returns {sqlite3.Database} A connection to the big2.db sqlite3 database.
