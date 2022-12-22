@@ -91,8 +91,54 @@ async function startGame() {
   }
 }
 
-// TODO: /MAKEMOVE
-// input: selected cards, (infer player id)
+app.get("/myPID", auth, (req, res) => {
+  res.send(res.locals.pid);
+});
+
+app.get("/currentBoard", (req, res) => {
+  if (!game) {
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
+  } else {
+    /** @type {Card[]} */
+    let hand = game.boardHand();
+    if (hand && hand.length) {
+      // let response = { cards: [] };
+      res.send(JSON.stringify(hand));
+      // console.log(JSON.stringify(hand));
+      // res.send(JSON.stringify([...game.boardHand]));
+    } else res.send("Hand undefined. Probably no cards on board");
+  }
+
+  // res.send(JSON.stringify([...game.boardHand]));
+});
+
+app.post("/makeMove", auth, (req, res) => {
+  if (!game) {
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
+  } else if (req.body.pid === undefined || req.body.cards === undefined) {
+    res
+      .status(INVALID_PARAM_ERROR)
+      .send("Missing one or more of the required params.");
+  } else {
+    let pid = req.body.pid;
+    let cards = req.body.cards;
+    console.log("RECIEVED CARDS: " + cards);
+    if (!cards) {
+      res
+        .status(INVALID_PARAM_ERROR)
+        .send("Invalid request. No cards provided. Move Pass Error.");
+    } else {
+      // cards = new Set(cards);
+      let result = game.makeMove(pid, cards);
+      if (result) res.send("Move successful");
+      else res.send("Move unsuccessful");
+    }
+  }
+});
 
 // current board reflects other player's moves when it's not your turn?
 // No, board always only reflects what the /currentBoard endpoint returns
@@ -122,6 +168,7 @@ app.get("/currentPlayer", auth, (req, res) => {
  */
 app.get("/currentHand", auth, (req, res) => {
   if (!game) {
+    res.clearCookie("game_cookie");
     res
       .status(INVALID_STATE_ERROR)
       .send("Invalid request. There is no game in progress.");

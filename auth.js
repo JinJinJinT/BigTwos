@@ -30,6 +30,7 @@ const verifyToken = async (req, res, next) => {
     console.log(err);
     console.log("clearing cookie");
     res.clearCookie("access_token");
+    res.clearCookie("game_cookie");
     res
       .status(401)
       .send("Auth expired: Logged-out. Please refresh and log-in again.");
@@ -70,7 +71,7 @@ const handleRoute = (req, res, next, verified) => {
   const token = req.cookies.game_cookie;
   if (token) {
     let allowGame = jwt.verify(token, process.env.GAME_KEY);
-
+    // console.log("allowGame: ", allowGame);
     if (allowGame) {
       if (endpoint.match(/^\/waitroom\/?$/)) return res.redirect("/");
       return next();
@@ -91,7 +92,8 @@ const isPlayerRequest = req => {
   if (
     req.originalUrl.match(/^\/currentHand\/?$/) ||
     req.originalUrl.match(/^\/playerReady\/?$/) ||
-    req.originalUrl.match(/^\/gameStarted\/?$/)
+    req.originalUrl.match(/^\/gameStarted\/?$/) ||
+    req.originalUrl.match(/^\/myPID\/?$/)
   )
     return getPID;
   return undefined;

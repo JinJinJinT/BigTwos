@@ -1,18 +1,20 @@
 ("use strict");
 import { handTypes } from "./constants.js";
-import { makeRequest } from "./apiFunctions.js";
+import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
 (function () {
   window.addEventListener("load", init);
 
   let selected = new Set();
+  /** @type {HTMLDivElement[]} */
   let cardList = {};
   let p1Cards = [];
-  let p2Cards = [];
+  /** A string representing the type of hand on the board.
+   *  @type {string} */
   let boardHand;
   let boardHighSuit = -1; // since lowest suit is 0
   let boardScore = 0;
-  let playerCanChoose = true; // need to disable card selection when this is false
+  let playerCanChoose = false; // need to disable card selection when this is false
   let PID;
 
   let currentHand;
@@ -44,13 +46,37 @@ import { makeRequest } from "./apiFunctions.js";
      * not being in the db and get stuck in an empty game screen.
      * Solution: Add a check that a user to any route (in auth) MUST also match db token.
      */
+    /**@type {Deck} */
     let deck;
     try {
       deck = await initDeck();
+      setInterval(async () => {
+        // When not your turn, check for board updates
+        if (!playerCanChoose) {
+          let board = await makeRequest("/currentBoard");
+          console.log(`CURRENT BOARD: ${board}`);
+          // if (board && board != boardHand) {
+          /**
+           * TODO:
+           * Find a way to update only the cards on the board.
+           * Currently:
+           * It just sorts selected cards and appends them to the board as children.
+           * Next:
+           * Every second when not your turn, check if the board has changed.
+           * If it has, create the cards and append them to the board.
+           *
+           * ALSO: Update the board hand. Just call the methods for cards on the board
+           *
+           */
+          // }
+        }
+      }, 1000);
     } catch (err) {
       console.error("initDeck fail:", err);
+      // refresh page
+      window.location.reload();
     }
-
+    PID = await makeRequest("/myPID");
     if (deck) {
       deck.flip();
       // deck.shuffle();
@@ -75,6 +101,13 @@ import { makeRequest } from "./apiFunctions.js";
       let button = document.getElementById("move");
       button.addEventListener("click", makeMove);
       button.disabled = true;
+      setInterval(async () => {
+        let currentPlayer = await makeRequest("/currentPlayer");
+        console.log(`current player is ${currentPlayer}`);
+        playerCanChoose = currentPlayer == PID;
+        console.log(`playerCanChoose is ${playerCanChoose}`);
+        // console.log(`Current player is: ${currentPlayer}`);
+      }, 1000);
     }
   }
 
@@ -84,9 +117,6 @@ import { makeRequest } from "./apiFunctions.js";
       // THIS ASSUMES BOTH PLAYERS ARE ALREADY LOGGED IN
       // let text = await makeRequest("/startGame");
       // console.log(text);
-
-      let currentPlayer = await makeRequest("/currentPlayer");
-      console.log(`Current player is: ${currentPlayer}`);
 
       /**@type {number[]} */
       let cards = await makeRequest("/currentHand");
@@ -100,37 +130,98 @@ import { makeRequest } from "./apiFunctions.js";
 
   async function populateHand(p1Cards) {
     p1Cards.forEach((card, i) => {
-      let cards = document.querySelectorAll(".interact .card-slot");
-      for (let i = 1; i < cards.length; i++) {
-        let bounds = cards[i - 1].getBoundingClientRect();
-        p1Cards[i - 1].animateTo({
-          delay: 1000 + i * 2, // wait 1 second + i * 2 ms
-          duration: 500,
-          ease: "quartOut",
+      // select all cards aready placed in the hand (not table)
+      // let cards = document.querySelectorAll(".interact .card-slot");
+      // for each card already placed except the last one
+      // get its position and animate it to that position
+      // for (let i = 1; i < cards.length; i++) {
+      //   let bounds = cards[i - 1].getBoundingClientRect();
+      //   p1Cards[i - 1].animateTo({
+      //     delay: 1000 + i * 2, // wait 1 second + i * 2 ms
+      //     duration: 500,
+      //     ease: "quartOut",
 
-          x: bounds.x,
-          y: bounds.y
-        });
-      }
+      //     x: bounds.x,
+      //     y: bounds.y
+      //   });
+      // }
+
+      // create a card slot and assign it to cardList ([] of divs)
       let container = document.createElement("div");
       container.classList.add("card-slot");
       card.slot = i;
       cardList[i] = container;
 
+      // append the card slot to the hand
       document.querySelector(".interact").appendChild(container);
+      // get the position of the card slot after appending
+      // let bounds = container.getBoundingClientRect();
+      // mount the container to the card
+      // card.mount(container);
+      // animate the card to the position of the container (not 100% necessary, investingating...)
+      // card.animateTo({
+      //   delay: 1000 + i * 2, // wait 1 second + i * 2 ms
+      //   duration: 500,
+      //   ease: "quartOut",
+
+      //   x: bounds.x,
+      //   y: bounds.y
+      // });
+      // container.firstElementChild.addEventListener("click", select);
+      // cards.push(card);
+    });
+    let cardCount = 0;
+    for (; cardCount < p1Cards.length; cardCount++) {
+      // storeTimer = setTimeout(() => {
+      console.log(cardCount);
+      let container = cardList[cardCount];
       let bounds = container.getBoundingClientRect();
-      card.mount(container);
-      card.animateTo({
-        delay: 1000 + i * 2, // wait 1 second + i * 2 ms
+      p1Cards[cardCount].animateTo({
+        delay: 50 * cardCount,
         duration: 500,
         ease: "quartOut",
 
         x: bounds.x,
         y: bounds.y
       });
+      p1Cards[cardCount].mount(container);
       container.firstElementChild.addEventListener("click", select);
-      //   cards.push(card);
-    });
+      // }, cardCount * 100);
+    }
+    // let cardTimer = setInterval(() => {
+    //   if (cardCount < p1Cards.length) {
+    //     console.log(cardCount);
+    //     let container = cardList[cardCount];
+    //     let bounds = container.getBoundingClientRect();
+    //     p1Cards[cardCount].animateTo({
+    //       delay: 100 * cardCount,
+    //       duration: 500,
+    //       ease: "quartOut",
+
+    //       x: bounds.x,
+    //       y: bounds.y
+    //     });
+    //     p1Cards[cardCount].mount(container);
+    //     container.firstElementChild.addEventListener("click", select);
+    //     cardCount++;
+    //   } else {
+    //     clearInterval(cardTimer);
+    //   }
+    // }, 100);
+    // p1Cards.forEach((card, i) => {
+    //   let container = cardList[i];
+    //   let bounds = container.getBoundingClientRect();
+    //   card.animateTo({
+    //     delay: 1000 + i * 100, // wait 1 second + i * 2 ms
+    //     duration: 500,
+    //     ease: "quartOut",
+
+    //     x: bounds.x,
+    //     y: bounds.y
+    //   });
+    //   card.mount(container);
+    //   container.firstElementChild.addEventListener("click", select);
+    // });
     setTimeout(updateCardLocation, 100, p1Cards);
     // let i = 0;
     // let cards = document.querySelectorAll(".card-slot");
@@ -184,7 +275,19 @@ import { makeRequest } from "./apiFunctions.js";
       currentHand != "invalid" &&
       handIsHigher;
     console.log("allowMove:", allowMove);
-    document.getElementById("move").disabled = !allowMove;
+    document.getElementById("move").disabled = !allowMove || !playerCanChoose;
+    updateBoard(undefined);
+  }
+
+  /** Resets the board with up to 5 cards passed through parameters
+   * @param {number[]} cards - an array of card numbers
+   */
+  function updateBoard(cards) {
+    // select the board
+    let board = document.querySelector("#table > .cards");
+    for (let childCard of board.children) {
+      console.log(childCard.firstElementChild);
+    }
   }
 
   function updateCardLocation(p1Cards) {
@@ -202,7 +305,7 @@ import { makeRequest } from "./apiFunctions.js";
     }
   }
 
-  function makeMove() {
+  async function makeMove() {
     console.log(`Setting board=${currentHand} ${currentScore} ${currentSuit}`);
     [boardHand, boardScore, boardHighSuit] = [
       currentHand,
@@ -216,14 +319,35 @@ import { makeRequest } from "./apiFunctions.js";
 
     // clear board
     parent.innerHTML = "";
-
+    /** @type {number[]} A numerical representation of each newly placed card*/
+    let placedCards = [];
     [...selected].sort(sortDiv).forEach(slot => {
       parent.appendChild(slot);
+      let card = slot.firstElementChild;
+      let classes = card.classList;
+      let rank = parseInt(classes[2].substring(4));
+      let suit = classes[1];
+      console.log("Rank is " + rank + " and suit is " + suit + ".");
+      let multiplier =
+        suit == "spades" ? 0 : suit == "hearts" ? 1 : suit == "clubs" ? 2 : 3;
+
+      console.log("Multiplier is " + multiplier + ".");
+      let code = multiplier * 13 + rank - 1;
+      placedCards.push(parseInt(code));
+      console.log(`Pushing ${code}. PlacedCards: ${placedCards}`);
       // clear and unselect
       select.call(slot.firstElementChild);
       slot.firstElementChild.removeEventListener("click", select);
     });
     updateCardLocation(p1Cards);
+    // send cards to endpoint
+    // create formdata object
+    let formData = new FormData();
+    formData.append("pid", PID);
+    formData.append("cards", placedCards); // this is the bug
+    formData.append("pass", false);
+    let response = await makePostRequest("/makeMove", formData);
+    console.log("move response: ", response);
   }
 
   function checkValidHand() {

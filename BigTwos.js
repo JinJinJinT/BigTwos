@@ -1,4 +1,5 @@
 const Player = require("./Player.js");
+const Card = require("./Card.js");
 
 // MAYBE ADD AN addPlayer(pid) method.
 
@@ -21,6 +22,13 @@ module.exports = class BigTwos {
    * @private
    */
   #size;
+
+  /**
+   * Cards currently on the board
+   * @type {number[]}
+   * @private
+   */
+  #boardHand;
 
   /**
    * Initiates the gamedata for a new game of BigTwos given a list of player id's.
@@ -59,6 +67,20 @@ module.exports = class BigTwos {
     return this.#players.pid;
   }
 
+  /** Converts the boardHand cards from their numerical representation to a
+   *  Card object representation containing a suit and rank and returns it.
+   * @returns {Card[] | null} The cards currently on the board or null if no
+   * cards have been placed yet.
+   */
+  boardHand() {
+    if (!this.#boardHand) return null;
+
+    console.log(`BOARDHAND: ${this.#boardHand}`);
+    /** @type {Card[]} */
+    let convertedCards = this.#boardHand.split(",").map(card => new Card(card));
+    return convertedCards;
+  }
+
   /**
    * Given a pid, returns the deck of cards of the player with that id.
    * @param {number} pid The pid of the players deck to find.
@@ -80,22 +102,26 @@ module.exports = class BigTwos {
    * not match the pid of the current player or if any other error occurs, it will
    * return false. It will return true after a successful turn was made.
    * @param {number} pid The pid of the function caller trying to make a move.
-   * @param {Set<number>} cards The cards the player is trying to put down as their move
+   * @param {number[]} cards The cards the player is trying to put down as their move
    * @param {boolean=} pass If true, will skip the current players turn. False by default.
    * @returns {boolean} True if move was valid, false otherwise.
    */
   makeMove(pid, cards, pass = false) {
-    if (pid !== this.#players.pid || this.gameOver()) return false;
+    if (pid != Math.trunc(this.#players.pid) || this.gameOver()) return false;
 
     if (!pass) {
+      console.log("BT got cards: " + cards);
       this.#players.cards = [...this.#players.cards].filter(
-        card => !cards.has(card)
+        card => !cards.includes(card)
       );
+      console.log(`Setting boardHand to ${cards}`);
+      this.#boardHand = cards;
     }
 
     if (!this.gameOver()) {
       this.#players = this.#players.next;
     }
+    console.log("Returning true");
     return true;
   }
 
@@ -104,7 +130,7 @@ module.exports = class BigTwos {
    * @returns Whether the game is over or not.
    */
   gameOver() {
-    return this.#players.cards.size() === 0;
+    return this.#players.cards.size === 0;
   }
 
   /**
