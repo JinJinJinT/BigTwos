@@ -101,11 +101,11 @@ app.get("/currentBoard", (req, res) => {
       .status(INVALID_STATE_ERROR)
       .send("Invalid request. There is no game in progress.");
   } else {
-    /** @type {Card[]} */
+    /** @type {Set<number>} */
     let hand = game.boardHand();
-    if (hand && hand.length) {
+    if (hand && hand.size) {
       // let response = { cards: [] };
-      res.send(JSON.stringify(hand));
+      res.send([...hand]);
       // console.log(JSON.stringify(hand));
       // res.send(JSON.stringify([...game.boardHand]));
     } else res.send("Hand undefined. Probably no cards on board");
@@ -125,15 +125,21 @@ app.post("/makeMove", auth, (req, res) => {
       .send("Missing one or more of the required params.");
   } else {
     let pid = req.body.pid;
+    /** @type {string} */
     let cards = req.body.cards;
     console.log("RECIEVED CARDS: " + cards);
+    console.log(`typeof cards in app.js ${typeof cards}`);
     if (!cards) {
       res
         .status(INVALID_PARAM_ERROR)
         .send("Invalid request. No cards provided. Move Pass Error.");
     } else {
-      // cards = new Set(cards);
-      let result = game.makeMove(pid, cards);
+      /** @type {number[]} convert cards string to Set<number> */
+      let cardsAsSet = new Set(
+        cards.split(",").map(cardStringID => parseInt(cardStringID))
+      );
+
+      let result = game.makeMove(pid, cardsAsSet);
       if (result) res.send("Move successful");
       else res.send("Move unsuccessful");
     }
