@@ -25,7 +25,7 @@ module.exports = class BigTwos {
 
   /**
    * Cards currently on the board
-   * @type {number[]}
+   * @type {Set<number>}
    * @private
    */
   #boardHand;
@@ -67,18 +67,23 @@ module.exports = class BigTwos {
     return this.#players.pid;
   }
 
+  /* OLD boardHand COMMENT, saving in case we need to do numerical to Card
+    conversion again */
   /** Converts the boardHand cards from their numerical representation to a
    *  Card object representation containing a suit and rank and returns it.
-   * @returns {Card[] | null} The cards currently on the board or null if no
+   */
+
+  /** Returns the set of cards on the board in their numerical representation.
+   * @returns {Set<number> | null} The cards currently on the board or null if no
    * cards have been placed yet.
    */
   boardHand() {
-    if (!this.#boardHand) return null;
+    if (!this.#boardHand || !this.#boardHand.size) return null;
 
-    console.log(`BOARDHAND: ${this.#boardHand}`);
-    /** @type {Card[]} */
-    let convertedCards = this.#boardHand.split(",").map(card => new Card(card));
-    return convertedCards;
+    console.log(`BOARDHAND: ${[...this.#boardHand]}`);
+    // /** @type {Card[]} */
+    // let convertedCards = this.#boardHand.split(",").map(card => new Card(card));
+    return this.#boardHand;
   }
 
   /**
@@ -102,19 +107,24 @@ module.exports = class BigTwos {
    * not match the pid of the current player or if any other error occurs, it will
    * return false. It will return true after a successful turn was made.
    * @param {number} pid The pid of the function caller trying to make a move.
-   * @param {number[]} cards The cards the player is trying to put down as their move
+   * @param {Set<number>} cards The cards the player is trying to put down as their move
    * @param {boolean=} pass If true, will skip the current players turn. False by default.
    * @returns {boolean} True if move was valid, false otherwise.
    */
   makeMove(pid, cards, pass = false) {
+    // TODO: Update player id code to be int not float. Also make it gaussian
     if (pid != Math.trunc(this.#players.pid) || this.gameOver()) return false;
 
     if (!pass) {
-      console.log("BT got cards: " + cards);
-      this.#players.cards = [...this.#players.cards].filter(
-        card => !cards.includes(card)
-      );
-      console.log(`Setting boardHand to ${cards}`);
+      console.log("BT got cards: " + [...cards]);
+      // remove all placed cards from current players cards
+      cards.forEach(placedCard => {
+        this.#players.cards.delete(placedCard);
+        console.log(`Removed ${placedCard} from ${pid}'s cards`);
+        console.log([...this.#players.cards]);
+      });
+
+      console.log(`Setting boardHand to cards: ${[...cards]}`);
       this.#boardHand = cards;
     }
 
