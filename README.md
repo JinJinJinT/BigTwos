@@ -61,7 +61,7 @@ update...
 - [x] Two browser test
 - [ ] Fully Update README
 - [ ] merge game-api branch
-- [ ] Player join/waiting screen
+- [x] Player join/waiting screen
 - [ ] Implement new fonts and art
 - [ ] Multiplayer testing
 
