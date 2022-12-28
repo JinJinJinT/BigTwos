@@ -6,90 +6,94 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
   window.addEventListener("load", init);
 
   let selected = new Set();
-  /** @type {HTMLDivElement[]} */
-  let cardList = {};
-  let p1Cards = [];
+  /** Stores divs for the hand
+   * @type {HTMLDivElement[]}
+   */
+  let handCardList = [];
+
+  /** Stores divs for the board
+   * @type {HTMLDivElement[]}
+   */
+  let boardCardList = [];
+
+  /** The numerical form of the current board's cards
+   * @type {number[]}
+   */
   let currentBoardCards = [];
+
+  /** The max number of slots needed for the player's hand
+   * @type {number}
+   */
+  let maxHandSize = 26;
+
+  /** Stores the css card object for this player
+   * @type {card[]}
+   */
+  let cssCards = [];
+
+  /**
+   * Stores the slot ID's of the currently considered css card objects
+   * Slots [0,maxHandSize) are for the hand. Slots [maxHandSize,maxHandSize + 5)
+   * are for the board.
+   * @type {Set<number>}
+   */
+  let activeSlots;
+
+  /**
+   * Cards to use when playerJustMoved is true. The cards this player moved
+   * to the board for their turn.
+   * @type {card[]}
+   */
+  let playerPlacedCards = [];
+
+  /**
+   * Whether this player just made a move or not.
+   * If they did then this changes the behavior of updateBoard.
+   * @type {boolean}
+   */
+  let playerJustMoved;
+
   /** A string representing the type of hand on the board.
    *  @type {string} */
   let boardHand;
+
   let boardHighSuit = -1; // since lowest suit is 0
+  /** Score of the current board's hand (boardCardList)
+   * @type {number}
+   */
   let boardScore = 0;
+
+  /** Whether it's the current players turn or not
+   * @type {boolean}
+   */
   let playerCanChoose = false; // need to disable card selection when this is false
+
+  /** This player's ID
+   * @type {number}
+   */
   let PID;
 
+  // Global variables for determining player hand score and type
   let currentHand;
   let currentScore;
   let currentSuit; // currently selected cards
-  // WE CAN JUST, when configuring api:
-  // States: Init (getting turn assigned), Turn, Waiting for turn
-  // Eventually things like shuffling and dealing will be
-  // controlled by status signals from the API
 
   async function init() {
     // TODO:
-    // Welcome message
-    // start game screen
-    // gameplay api
+    // Reset at end of game rather than just restarting nodemon.
 
-    // TODO:
-    // create a start-game loading screen after login that displays all logged in players
-
-    // V1:
-    // Log in with 2 browsers to test
-    /* BUGS:
-     * Need to restart game for newly joined players since BigTwos object isn't updated to the db.
-     * Solution: 1. startGame adds you to the BigTwos game
-     *           2. login->ready screen->once all ready: add all to BigTwos and startGame.
-
-
-     * If players join already with cookies, they get verified despite
-     * not being in the db and get stuck in an empty game screen.
-     * Solution: Add a check that a user to any route (in auth) MUST also match db token.
-     */
     /**@type {Deck} */
     let deck;
+
     try {
       deck = await initDeck();
       setInterval(async () => {
         // When not your turn, check for board updates
         if (!playerCanChoose) {
           /** @type {number[]} */
-          let board = await makeRequest("/currentBoard");
-          // board.forEach(thing => console.log(thing));
-          console.log(`CURRENT BOARD: ${JSON.stringify(board)}`);
-          // console.log(`CURRENT BOARD-nojson: ${board}`);
-          // console.log(`CURRENT BOARD-nojson: ${board[2]}`);
-          // console.log(`CURRENT BOARD-unwrapped: ${[...board]}`);
-          // console.log(`type of board: ${typeof board}`);
-          console.log(typeof board);
-          if (
-            board &&
-            typeof board == "object" &&
-            board.toString() != currentBoardCards.toString()
-          ) {
-            console.log(
-              `Checked if ${board.toString()} != ${currentBoardCards.toString()}`
-            );
-            console.log(`Updating currentBoardCards to ${board}`);
-            currentBoardCards = [];
-            board.forEach(item => currentBoardCards.push(item));
-            console.log(`CurrentBoardCards is now ${currentBoardCards}`);
-            updateBoard(board);
-            /**
-             * TODO:
-             * Find a way to update only the cards on the board.
-             * Currently:
-             * It just sorts selected cards and appends them to the board as children.
-             * Next:
-             * Every second when not your turn, check if the board has changed.
-             * If it has, create the cards and append them to the board.
-             *
-             * ALSO: Update the board hand. Just call the methods for cards on the board
-             * ALSO update score
-             *
-             */
-          }
+          let newBoard = await didBoardUpdate();
+          console.log(`did board update: ${newBoard}`);
+          if (newBoard) updateBoard(newBoard);
         }
       }, 1000);
     } catch (err) {
@@ -97,28 +101,20 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       // refresh page
       window.location.reload();
     }
+
     PID = await makeRequest("/myPID");
     if (deck) {
       deck.flip();
-      // deck.shuffle();
-      // deck.cards[0].enableDragging();
-      // deck.cards[1].enableDragging();
-
-      // let container = document.createElement("div");
-      // deck.cards[1].mount(container);
-      // container.classList.add("card-slot");
-      // document.querySelector(".interact").appendChild(container);
-
       for (let i = 0; i < deck.cards.length; i++) {
-        //   deck.cards[i].enableDragging();
-        //   deck.cards[i + 1].enableDragging();
-        p1Cards.push(deck.cards[i]);
-        //   p2Cards.push(deck.cards[i + 1]);
+        // create a copy of each card
+        cssCards.push(deck.cards[i]);
       }
-      p1Cards.sort(sort);
-      populateHand(p1Cards);
+      maxHandSize = cssCards.length;
+      cssCards.sort(sort);
+      populateHand();
 
-      window.addEventListener("resize", () => updateCardLocation(p1Cards));
+      // update card locations when window size changes
+      window.addEventListener("resize", () => updateCardLocation(cssCards));
       let button = document.getElementById("move");
       button.addEventListener("click", makeMove);
       button.disabled = true;
@@ -134,11 +130,6 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
   async function initDeck() {
     try {
-      // init the game
-      // THIS ASSUMES BOTH PLAYERS ARE ALREADY LOGGED IN
-      // let text = await makeRequest("/startGame");
-      // console.log(text);
-
       /**@type {number[]} */
       let cards = await makeRequest("/currentHand");
       console.log("successfull initDeck");
@@ -149,115 +140,76 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     }
   }
 
-  async function populateHand(p1Cards) {
-    p1Cards.forEach((card, i) => {
-      // select all cards aready placed in the hand (not table)
-      // let cards = document.querySelectorAll(".interact .card-slot");
-      // for each card already placed except the last one
-      // get its position and animate it to that position
-      // for (let i = 1; i < cards.length; i++) {
-      //   let bounds = cards[i - 1].getBoundingClientRect();
-      //   p1Cards[i - 1].animateTo({
-      //     delay: 1000 + i * 2, // wait 1 second + i * 2 ms
-      //     duration: 500,
-      //     ease: "quartOut",
+  /**
+   * Checks if the board updated from another player making a move.
+   * @returns {number[] | null} Returns the updated board in its numerical form
+   * if the board changed. Otherwise returns null.
+   */
+  async function didBoardUpdate() {
+    /** @type {number[]} */
+    let board = await makeRequest("/currentBoard");
+    console.log(`CURRENT BOARD: ${JSON.stringify(board)}`);
+    console.log(`Boards type: ${typeof board}`);
+    // console.log(`CURRENT BOARD-nojson: ${board}`);
+    // console.log(`CURRENT BOARD-nojson: ${board[2]}`);
+    // console.log(`CURRENT BOARD-unwrapped: ${[...board]}`);
+    // console.log(`type of board: ${typeof board}`);
 
-      //     x: bounds.x,
-      //     y: bounds.y
-      //   });
-      // }
+    // compare the fetched board to the currently stored board.
+    // Sometimes board is a string and we only want to consider its object form
+    let boardChanged =
+      board &&
+      typeof board == "object" &&
+      currentBoardCards.toString() != board.toString();
+    if (boardChanged) {
+      console.log(
+        `Checked if ${board.toString()} != ${currentBoardCards.toString()}`
+      );
+      return board;
+    }
+    return null;
+  }
 
+  /**
+   * Populates the player's hand with their cards.
+   */
+  async function populateHand() {
+    activeSlots = new Set();
+    cssCards.forEach((card, i) => {
       // create a card slot and assign it to cardList ([] of divs)
       let container = document.createElement("div");
       container.classList.add("card-slot");
       card.slot = i;
-      cardList[i] = container;
+      handCardList[i] = container;
+
+      // add slot id to set of slots
+      activeSlots.add(i);
 
       // append the card slot to the hand
       document.querySelector(".interact").appendChild(container);
-      // get the position of the card slot after appending
-      // let bounds = container.getBoundingClientRect();
-      // mount the container to the card
-      // card.mount(container);
-      // animate the card to the position of the container (not 100% necessary, investingating...)
-      // card.animateTo({
-      //   delay: 1000 + i * 2, // wait 1 second + i * 2 ms
-      //   duration: 500,
-      //   ease: "quartOut",
-
-      //   x: bounds.x,
-      //   y: bounds.y
-      // });
-      // container.firstElementChild.addEventListener("click", select);
-      // cards.push(card);
     });
-    let cardCount = 0;
-    for (; cardCount < p1Cards.length; cardCount++) {
-      // storeTimer = setTimeout(() => {
-      console.log(cardCount);
-      let container = cardList[cardCount];
+
+    // move each card to its appropriate hand div
+    for (let cardCount = 0; cardCount < cssCards.length; cardCount++) {
+      let container = handCardList[cardCount];
       let bounds = container.getBoundingClientRect();
-      p1Cards[cardCount].animateTo({
-        delay: 50 * cardCount,
+      cssCards[cardCount].animateTo({
+        delay: 50 * cardCount, // delay for smooth moving as distance increases
         duration: 500,
         ease: "quartOut",
 
         x: bounds.x,
         y: bounds.y
       });
-      p1Cards[cardCount].mount(container);
+      cssCards[cardCount].mount(container); // append card as child to the div
       container.firstElementChild.addEventListener("click", select);
-      // }, cardCount * 100);
+      container.firstElementChild.slot = cardCount;
     }
-    // let cardTimer = setInterval(() => {
-    //   if (cardCount < p1Cards.length) {
-    //     console.log(cardCount);
-    //     let container = cardList[cardCount];
-    //     let bounds = container.getBoundingClientRect();
-    //     p1Cards[cardCount].animateTo({
-    //       delay: 100 * cardCount,
-    //       duration: 500,
-    //       ease: "quartOut",
-
-    //       x: bounds.x,
-    //       y: bounds.y
-    //     });
-    //     p1Cards[cardCount].mount(container);
-    //     container.firstElementChild.addEventListener("click", select);
-    //     cardCount++;
-    //   } else {
-    //     clearInterval(cardTimer);
-    //   }
-    // }, 100);
-    // p1Cards.forEach((card, i) => {
-    //   let container = cardList[i];
-    //   let bounds = container.getBoundingClientRect();
-    //   card.animateTo({
-    //     delay: 1000 + i * 100, // wait 1 second + i * 2 ms
-    //     duration: 500,
-    //     ease: "quartOut",
-
-    //     x: bounds.x,
-    //     y: bounds.y
-    //   });
-    //   card.mount(container);
-    //   container.firstElementChild.addEventListener("click", select);
-    // });
-    setTimeout(updateCardLocation, 100, p1Cards);
-    // let i = 0;
-    // let cards = document.querySelectorAll(".card-slot");
-    // cards[i].click();
-    // let timerId = setInterval(function () {
-    //   if (i === cards.length) {
-    //     clearInterval(timerId);
-    //   } else {
-    //     i++;
-    //     cards[i - 1].click();
-    //     cards[i].click();
-    //   }
-    // }, 500);
+    // not sure what this was
+    // setTimeout(updateCardLocation, 100, cssCards);
   }
 
+  /** Handles logic for when a card is clicked */
   function select() {
     if (selected.size < 5) {
       this.classList.toggle("selected");
@@ -284,11 +236,13 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       currentSuit,
       isPoker
     );
+
     let handIsHigher =
       (boardHand === undefined || isPoker || currentHand == boardHand) &&
       (currentScore > boardScore ||
         (currentScore == boardScore && currentSuit > boardHighSuit));
     console.log("handIsHigher:", handIsHigher);
+
     let allowMove =
       playerCanChoose &&
       selected.size != 0 &&
@@ -296,151 +250,163 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       currentHand != "invalid" &&
       handIsHigher;
     console.log("allowMove:", allowMove);
+    // disable move button if either the hand is invalid or it's not their turn
     document.getElementById("move").disabled = !allowMove || !playerCanChoose;
-    // updateBoard(undefined);
   }
 
-  /** Resets the board with up to 5 cards passed through parameters
+  /**
+   * Updates the board to the passed in cards.
+   * It's guranteed that the board changed
    * @param {number[]} cards - an array of cards in their numerical representation
    */
   function updateBoard(cards) {
-    // select the board
-    let board = document.querySelector("#table > .cards");
-    // create the new cards
-    let newBoardDeck = new Deck(cards);
-    newBoardDeck.flip();
-    newBoardDeck = newBoardDeck.cards;
-    console.log(board);
-    console.log(board.children);
-    console.log(newBoardDeck);
-
-    // TODO:
-    // CHANGE TO ALWAYS HAVE 5 POSITIONS ON THE BOARD???
-    // ORRRR,
-    // WRITE A FUNCTION THAT MOVES A CARD TO A POSITION
-    // ON THE BOARD?
-
-    // TODO:
-    // We need to handle .slots because cards move as size changes.
-    // 1. If newCards length <= board.children.length
-    //    - Replace each card-slot child and update the cards .slot attribute to be
-    //      the same as the old cards .slot attribute.
-    //    - If newCards length != board.children.length
-    //      then remove all board.children where i >= newCards.length
-    // 2. If newCards length > board.children.length
-    //    - Same as 1. Replace each card slot until i == board.children.length
-    //    - Create new card-slots and append them to cardList as well as to the board.
-
-    // Create a card-slot for each newBoardDeck item. Also mount them together
-    console.log(`The length of new board is: ${newBoardDeck.length}`);
-    if (newBoardDeck.length < board.children.length) {
-      console.log(`Changing ${newBoardDeck.length} cards`);
-      for (let i = 0; i < newBoardDeck.length; i++) {
-        let cardSlot = board.children[i];
-        let slotID = cardSlot.firstElementChild.slot;
-        newBoardDeck[i].slot = slotID;
-        p1Cards[slotID] = newBoardDeck[i];
-        cardSlot.firstElementChild.remove();
-        newBoardDeck[i].mount(cardSlot);
-      }
-      // replace each card slot child
-      // if (newBoardDeck.length != board.children.length) {
-      // remove all board.children where i >= newCards.length
-      console.log(
-        `Deleting cards in positions ${newBoardDeck.length} ~ ${
-          board.children.length - 1
-        }`
-      );
-      for (let i = newBoardDeck.length; i < board.children.length; i++) {
-        /* May need to update cardList or p1Cards*/
-        board.children[newBoardDeck.length].remove();
-      }
-      // }
+    currentBoardCards = [];
+    if (cards) {
+      console.log(`Updating currentBoardCards to ${cards}`);
+      cards.forEach(item => currentBoardCards.push(item));
+      console.log(`CurrentBoardCards is now ${currentBoardCards}`);
     } else {
-      for (let i = 0; i < board.children.length; i++) {
-        let cardSlot = board.children[i];
-        let slotID = cardSlot.firstElementChild.slot;
-        newBoardDeck[i].slot = slotID;
-        p1Cards[slotID] = newBoardDeck[i];
-        cardSlot.firstElementChild.remove();
-        newBoardDeck[i].mount(cardSlot);
-      }
-      for (let i = board.children.length; i < newBoardDeck.length; i++) {
-        let newSlot = document.createElement("div");
-        newSlot.classList.add("card-slot");
-        let slotID = p1Cards.length;
-        newBoardDeck[i].slot = slotID;
-        p1Cards.push(newBoardDeck[i]);
-        cardList[slotID] = newSlot;
-        // newBoardDeck[i].slot =
-        newBoardDeck[i].mount(newSlot);
-        board.appendChild(newSlot);
-      }
+      console.log(`CurrentBoardCards is now ${currentBoardCards}`);
     }
-    updateCardLocation(p1Cards);
 
-    // for (let newCard of newBoardDeck) {
-    //   // create div cardslot
-    //   let newSlot = document.createElement("div");
-    //   newSlot.classList.add("card-slot");
-    // }
+    // TODO:
+    // IMPLEMENT updateBoard TO REFLECT THE boardCardList
 
-    // board.innerHTML = "";
+    // WHEN playerJustMoved IS TRUE, USE THE CURRENTLY SELECTED CARDS.
 
-    // replace all old ones
-    // board.replaceChildren(newBoardDeck);
-    // let newCardIndex = 0;
-    // let oldCardIndex = 0;
-    // while (oldCardIndex < board.children.length && newCardIndex < newBoardDeck.length) {
-    //   board.children[oldCardIndex].replaceChild(newBoardDeck[newCardIndex]);
-    //   oldCardIndex++;
-    //   newCardIndex++;
-    // }
+    // clear board
+    let parent = document.querySelector("#table > .cards");
+    parent.innerHTML = "";
 
-    // append new cards
-    // while (newCardIndex < newBoardDeck.length) {
-    //   board.children[newBoardDeck].repla
-    // }
+    // clear boardCardList
+    boardCardList = [];
 
-    // clear old cards
+    // clear anything from index maxHandize ~ maxHandSize + 5 in cssCards
+    cssCards = cssCards.slice(0, maxHandSize);
 
-    // let childCard = board.children[position];
-    // Should already be sorted I think
-    // board.appendChild(newBoardDeck[position])
-    // childCard.replaceWith(newBoardDeck[position]);
-    // let card = cards[position];
-    // childCard.classList[1] = card["suit"].toLowerCase();
-    // childCard.classList[2] = "rank" + card["rank"].toLowerCase();
-    // console.log(
-    //   `Replacing ${JSON.stringify(childCard)} with ${JSON.stringify(card)}`
-    // );
-    // childCard.classList.contains("");
-    // }
-    // while (position < board.children.length) {
-    //   let childCard = board.children[position];
-    //   childCard.remove();
-    // }
+    // clear active board indexes
+    for (let i = maxHandSize; i < maxHandSize + 5; i++) activeSlots.delete(i);
+    console.log(`clearing board slots in activeSlots`);
 
-    // for (let i = 0; i < cards.length; i++) {
-    //   let childCard = board.children[i];
-    //   let card = cards[i];
-    //   console.log(childCard.firstElementChild);
-    // }
+    if (playerJustMoved) {
+      console.log(
+        `Entered playerJustMoved and playerPlacedCards is:\n${playerPlacedCards}`
+      );
+      playerPlacedCards.forEach((card, index) => {
+        let oldSlot = parseInt(card.slot);
+        // delete old slot
+        activeSlots.delete(oldSlot);
+        console.log(`Deleted active slot ${oldSlot} if it existed`);
+
+        // delete old div from hand
+        handCardList[oldSlot] = null;
+        console.log(
+          `set slot #${oldSlot} to null in handCardList:\n${handCardList}`
+        );
+
+        // update its slot
+        let newSlot = maxHandSize + index;
+        card.slot = newSlot;
+        console.log(
+          `Updated the cards slot to maxHandSize(${maxHandSize}) + index(${index}) = ${newSlot}`
+        );
+
+        // add the new slot to the active slots and change its csscard
+        activeSlots.add(newSlot);
+        cssCards.push(cssCards[oldSlot]);
+        cssCards[oldSlot] = null;
+
+        // index++;
+
+        /** get parent div
+         * @type {HTMLDivElement}
+         */
+        let parentDiv = card.parentElement;
+        console.log(`Got the old parent div which was\n${parentDiv}`);
+
+        // make new div and append to board and boardCardList
+        let newDiv = document.createElement("div");
+        newDiv.classList.add("card-slot");
+        parent.appendChild(newDiv);
+        boardCardList.push(newDiv);
+        console.log(
+          `created and appended the new Div and added it to boardCardList`
+        );
+
+        // mount to new div
+        newDiv.appendChild(card);
+        console.log(`Appended the card to new div`);
+
+        // delete old parent div
+        parentDiv.remove();
+        console.log(`Deleted the old parent div`);
+      });
+      playerJustMoved = false;
+    } else {
+      // create the cards
+      let cardsToDeck = new Deck(cards);
+      cardsToDeck.flip();
+      cardsToDeck = cardsToDeck.cards;
+
+      cardsToDeck.forEach((card, index) => {
+        // create the divs
+        let newDiv = document.createElement("div");
+        newDiv.classList.add("card-slot");
+
+        // append to boardCardList
+        boardCardList.push(newDiv);
+
+        // mount to the div
+        card.mount(newDiv);
+
+        // update card slot
+        card.slot = maxHandSize + index;
+        newDiv.firstElementChild.slot = card.slot;
+
+        // append to board
+        parent.appendChild(newDiv);
+
+        // push to cssCards at proper index by checking its length first. Avoid IndexOOB
+        // if (cssCards.length < maxHandSize + index) {
+        cssCards.push(card);
+        // } else {
+        // cssCards[maxHandSize + index] = card;
+        // }
+        activeSlots.add(maxHandSize + index);
+      });
+    }
+
+    // cssCards[maxHandCount] = newly generated card
+    // newGenCard.slot = maxHandCount + index where index (0~cards.length)
+    //boardHandList[index] = a new div
+
+    // clear all divs.
+
+    // MAKE MOVE IS UPDATE THE SLOTS AND DELETE THE DIVS THEY WERE ON THEN UPDATE BOARD
+    console.log(`Updated board: activeSlots are: ${[...activeSlots]}`);
+    // WHEN OTHER PLAYER MOVES WE GENERATE NEW CARDS
+    updateCardLocation();
   }
 
-  function updateCardLocation(p1Cards) {
-    for (let i = 0; i < p1Cards.length; i++) {
-      let slot = p1Cards[i].slot;
-      let bounds = cardList[slot].getBoundingClientRect();
-      p1Cards[i].animateTo({
-        delay: 1000 + i * 2, // wait 1 second + i * 2 ms
+  /** Moves each card on the board to its attached div on the board */
+  function updateCardLocation() {
+    // change to iterate over set of acceptable cards
+    activeSlots.forEach(slot => {
+      console.log(`Updating slot #:${slot}`);
+      let bounds;
+      if (slot < maxHandSize)
+        bounds = handCardList[slot].getBoundingClientRect();
+      else bounds = boardCardList[slot - maxHandSize].getBoundingClientRect();
+
+      cssCards[slot].animateTo({
+        delay: 0, // no reason to delay I think
         duration: 400,
         ease: "quartOut",
 
         x: bounds.x,
         y: bounds.y
       });
-    }
+    });
   }
 
   async function makeMove() {
@@ -453,16 +419,15 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
     document.getElementById("type").textContent = "Type: " + boardHand;
 
-    let parent = document.querySelector("#table > .cards");
-
-    // clear board
-    parent.innerHTML = "";
     /** @type {number[]} A numerical representation of each newly placed card*/
     let placedCards = [];
     currentBoardCards = [];
+    playerPlacedCards = [];
+
     [...selected].sort(sortDiv).forEach(slot => {
-      parent.appendChild(slot);
+      // parent.appendChild(slot);
       let card = slot.firstElementChild;
+      playerPlacedCards.push(card);
       let classes = card.classList;
       let rank = parseInt(classes[2].substring(4));
       let suit = classes[1];
@@ -479,7 +444,8 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       select.call(slot.firstElementChild);
       slot.firstElementChild.removeEventListener("click", select);
     });
-    updateCardLocation(p1Cards);
+    playerJustMoved = true;
+    // updateCardLocation();
     // send cards to endpoint
     // create formdata object
     let formData = new FormData();
@@ -488,6 +454,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     formData.append("pass", false);
     let response = await makePostRequest("/makeMove", formData);
     console.log("move response: ", response);
+    updateBoard(placedCards);
   }
 
   // TODO:
