@@ -87,15 +87,15 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
     try {
       deck = await initDeck();
-      setInterval(async () => {
-        // When not your turn, check for board updates
-        if (!playerCanChoose) {
-          /** @type {number[]} */
-          let newBoard = await didBoardUpdate();
-          console.log(`did board update: ${newBoard}`);
-          if (newBoard) updateBoard(newBoard);
-        }
-      }, 1000);
+      // setInterval(async () => {
+      //   // When not your turn, check for board updates
+      //   if (!playerCanChoose) {
+      //     /** @type {number[]} */
+      //     let newBoard = await didBoardUpdate();
+      //     console.log(`did board update: ${newBoard}`);
+      //     if (newBoard) updateBoard(newBoard);
+      //   }
+      // }, 1000);
     } catch (err) {
       console.error("initDeck fail:", err);
       // refresh page
@@ -118,7 +118,13 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       let button = document.getElementById("move");
       button.addEventListener("click", makeMove);
       button.disabled = true;
+
       setInterval(async () => {
+        /** @type {number[]} */
+        let newBoard = await didBoardUpdate();
+        console.log(`did board update: ${newBoard}`);
+        if (newBoard && !playerJustMoved) updateBoard(newBoard);
+
         let currentPlayer = await makeRequest("/currentPlayer");
         console.log(`current player is ${currentPlayer}`);
         playerCanChoose = currentPlayer == PID;
@@ -227,8 +233,18 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     }
 
     console.log("board:", boardHand, boardScore, boardHighSuit);
+
+    updateGameValues(selected);
+  }
+
+  /**
+   * Updates the game's values such as the type of hand on the board, the score of
+   * the current hand, etc.
+   * @param {Set<HTMLDivElement>} hand
+   */
+  function updateGameValues(hand) {
     let isPoker;
-    [currentHand, currentScore, currentSuit, isPoker] = checkValidHand();
+    [currentHand, currentScore, currentSuit, isPoker] = checkValidHand(hand);
     console.log(
       "checkValidHand(): ",
       currentHand,
@@ -386,6 +402,20 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     console.log(`Updated board: activeSlots are: ${[...activeSlots]}`);
     // WHEN OTHER PLAYER MOVES WE GENERATE NEW CARDS
     updateCardLocation();
+
+    let hand = new Set();
+    // let children = parent.children();
+    // for (let i = 0; i < children.length; i++) hand.add(child);
+    [...parent.childNodes].forEach(child => hand.add(child));
+    console.log(`handSet: ${hand}`);
+    updateGameValues(hand);
+    console.log(`Setting board=${currentHand} ${currentScore} ${currentSuit}`);
+    [boardHand, boardScore, boardHighSuit] = [
+      currentHand,
+      currentScore,
+      currentSuit
+    ];
+    document.getElementById("type").textContent = "Type: " + boardHand;
   }
 
   /** Moves each card on the board to its attached div on the board */
@@ -410,14 +440,14 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
   }
 
   async function makeMove() {
-    console.log(`Setting board=${currentHand} ${currentScore} ${currentSuit}`);
-    [boardHand, boardScore, boardHighSuit] = [
-      currentHand,
-      currentScore,
-      currentSuit
-    ];
+    // console.log(`Setting board=${currentHand} ${currentScore} ${currentSuit}`);
+    // [boardHand, boardScore, boardHighSuit] = [
+    //   currentHand,
+    //   currentScore,
+    //   currentSuit
+    // ];
 
-    document.getElementById("type").textContent = "Type: " + boardHand;
+    // document.getElementById("type").textContent = "Type: " + boardHand;
 
     /** @type {number[]} A numerical representation of each newly placed card*/
     let placedCards = [];
@@ -459,9 +489,14 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
   // TODO:
   // Isolate Poker hands and other hands
-  function checkValidHand() {
+  /**
+   *
+   * @param {Set<HTMLDivElement>} hand The set of cards we are checking validity of.
+   * @returns {[string,number,number,boolean]} The [hand name, hand score, hand's
+   * highest suit, whether hand is a poker hand or not]
+   */
+  function checkValidHand(hand) {
     let code;
-    let handSize = selected.size;
     let name, multiplier, highCard, highSuit;
 
     // flags for Straight, Flush, and Royal
@@ -492,7 +527,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     let isConsecutive = true;
 
     // loop to set flags for determining the current selected hand
-    for (let item of selected) {
+    for (let item of hand) {
       let child = item.firstElementChild;
       let [card, suit, rank] = child.classList;
       rank = parseInt(rank.replace("rank", ""));
@@ -547,10 +582,10 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
     let isPoker = false;
     // assign multiplier and name
-    if (selected.size < 5) {
+    if (hand.size < 5) {
       if (findFH.size == 1) {
-        [name, multiplier] = handTypes[selected.size];
-        if (selected.size == 4) isPoker = true;
+        [name, multiplier] = handTypes[hand.size];
+        if (hand.size == 4) isPoker = true;
       }
     } else {
       isPoker = true;
@@ -596,38 +631,6 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     let score =
       highCard < 3 ? (highCard + 13) * multiplier : (highCard - 2) * multiplier;
     return [name, score, highSuit, isPoker];
-    return name !== undefined && name != "invalid";
-    // Can only move if it is your turn.
-    // Can select cards whenever
-    // can only move if undefined or if pattern is higher
-    let newScore = highCard * multiplier;
-    if (name != "invalid") {
-      if (currentType == undefined) {
-        // add checking and functionality for when the type shouldn't change later
-        cardScore = newScore;
-        currentType = name;
-        currentSuit = highSuit;
-      } else if (currentType == name) {
-        if (cardScore == newScore && currentSuit > highSuit) {
-          console.log("false");
-          return false;
-        }
-        if (cardScore > newScore) {
-          cardScore = newScore;
-        }
-      }
-      console.log("true:", cardScore, newScore, currentType, currentSuit);
-      return true;
-    }
-    // console.log(R,S,F)
-    // console.log(royals)
-    // console.log(name);
-    // console.log(currentType);
-    // console.log(highCard);
-    // console.log(multiplier);
-    // console.log(newScore);
-    console.log([currentType, cardScore]);
-    return false;
   }
 
   function sort(a, b) {
