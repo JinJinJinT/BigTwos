@@ -106,9 +106,10 @@ p {
 
 button {
   margin-left: 5%;
-  margin-right: 15px;
+  /* margin-right: 5%; */
   font-size: 35px;
   padding: 10px;
+  margin-top: 15px;
   border: 5px outset #bd9425;
   /* background: linear-gradient(
     90deg,
@@ -127,6 +128,14 @@ button:active {
 button:disabled {
   cursor: default;
   border: 5px outset #bd9425;
+}
+
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  /* justify-content: space-evenly; */
+  /* padding: 15px; */
+  margin-left: 15px;
 }
 
 /* footer {

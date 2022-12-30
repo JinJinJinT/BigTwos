@@ -9,33 +9,233 @@
 const sqlite3 = require("sqlite3");
 const sqlite = require("sqlite");
 const express = require("express");
+const cookieParser = require("cookie-parser");
 const app = express();
+
 const multer = require("multer");
 const crypto = require("crypto");
 
 const path = require("path");
-const fs = require("fs");
-const os = require("os");
 
 const dotenv = require("dotenv");
 const jwt = require("jsonwebtoken");
 const auth = require("./auth");
 
 const INVALID_PARAM_ERROR = 400;
-const INVALID_TOKEN_ERROR = 403;
+const INVALID_STATE_ERROR = 401;
 const SERVER_ERROR = 500;
 const SERVER_ERROR_MSG = "An error occurred on the server :( Try again later.";
 
 // Set up Global configuration access
-dotenv.config({ override: true });
+dotenv.config();
 
 app.set("view engine", "ejs");
 
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: true })); // built-in middleware
 // for application/json
 app.use(express.json()); // built-in middleware
 // for multipart/form-data (required with FormData)
 app.use(multer().none()); // requires the "multer" module
+
+/**@type {Set} */
+let playersReady = new Set();
+
+/** An instance of the game object. Lifecycle (BigTwos.js)
+ * @type {BigTwos}
+ */
+let game;
+const BigTwos = require("./BigTwos.js");
+
+/* +-----------------------_____ LOGIC-----------------------+ */
+
+// startGame endpoint to initiate game
+// init linked list structure for each player db.all
+/* Player {
+ *  List<cards> cards
+ *  Player next
+ *
+ *  makeMove(List<cards>) subtract cards with passed in cards
+ * }
+ *
+ */
+// wait for post requests from each player to: move(cards[])
+
+/**
+ * Endpoint: /startGame
+ * Type: GET
+ * Return format: text
+ * Authorization from log-in required.
+ * Starts a new game of BigTwos with the currently logged-in and ready players.
+ */
+async function startGame() {
+  try {
+    if (!game) {
+      const db = await getDBConnection();
+      let pids = await db.all(`
+        SELECT pid
+        FROM players;
+      `);
+      pids = pids.map(row => row.pid);
+      game = new BigTwos(pids);
+      // res.send("Started new game of BigTwos...");
+      console.log(game.toString());
+    } else {
+      console.log("A game already exists...");
+      // res.send("A game already exists... restarting the game");
+      // functionality to add new players
+    }
+  } catch (err) {
+    console.log(err);
+    // res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
+  }
+}
+
+app.get("/myPID", auth, (req, res) => {
+  res.send(res.locals.pid);
+});
+
+app.get("/currentBoard", (req, res) => {
+  if (!game) {
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
+  } else {
+    /** @type {Set<number>} */
+    let hand = game.boardHand();
+    if (!hand) res.send([]);
+    else res.send([...hand]);
+    // let response = { cards: [] };
+
+    // console.log(JSON.stringify(hand));
+    // res.send(JSON.stringify([...game.boardHand]));
+    // } else res.send("Hand undefined. Probably no cards on board");
+  }
+
+  // res.send(JSON.stringify([...game.boardHand]));
+});
+
+app.post("/makeMove", auth, (req, res) => {
+  if (!game) {
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
+  } else if (req.body.pid === undefined || req.body.cards === undefined) {
+    res
+      .status(INVALID_PARAM_ERROR)
+      .send("Missing one or more of the required params.");
+  } else {
+    let pid = req.body.pid;
+    let pass = req.body.pass == "true";
+    /** @type {string} */
+    let cards = req.body.cards;
+    console.log("RECIEVED CARDS: " + cards);
+    console.log(`typeof cards in app.js ${typeof cards}`);
+    console.log(`app.js: Pass is: ${pass}`);
+    if (!cards && !pass) {
+      res
+        .status(INVALID_PARAM_ERROR)
+        .send("Invalid request. No cards provided and player did not pass.");
+    } else {
+      /** @type {number[]} convert cards string to Set<number> */
+      let cardsAsSet = new Set(
+        cards.split(",").map(cardStringID => parseInt(cardStringID))
+      );
+      let result = game.makeMove(pid, cardsAsSet, pass);
+      if (result) res.send("Move successful");
+      else res.send("Move unsuccessful");
+    }
+  }
+});
+
+// current board reflects other player's moves when it's not your turn?
+// No, board always only reflects what the /currentBoard endpoint returns
+/**
+ * Endpoint: /currentPlayer
+ * Type: GET
+ * Return format: text
+ * Authorization from log-in required.
+ * Returns the pid of the authorized player making the request.
+ */
+app.get("/currentPlayer", auth, (req, res) => {
+  if (!game) {
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
+  } else {
+    res.send(game.currentPlayer);
+  }
+});
+
+/**
+ * Endpoint: /currentHand
+ * Type: GET
+ * Return format: JSON
+ * Authorization from log-in required.
+ * Returns a JSON of the set of cards for the authorized player making the request.
+ */
+app.get("/currentHand", auth, (req, res) => {
+  if (!game) {
+    res.clearCookie("game_cookie");
+    res
+      .status(INVALID_STATE_ERROR)
+      .send("Invalid request. There is no game in progress.");
+  } else {
+    console.log("pid in /cH", res.locals.pid);
+    if (!res.locals.pid) {
+      res.status(SERVER_ERROR).send("PID not found");
+    } else {
+      /**@type {Set<number>}*/
+      let deckSet = game.playerCards(res.locals.pid);
+      if (!deckSet) {
+        res
+          .status(SERVER_ERROR)
+          .send("Hand was undefined. Internal PID mismatch.");
+      } else {
+        res.type("json");
+        res.send(JSON.stringify([...deckSet]));
+      }
+    }
+  }
+});
+
+app.get("/players", async (req, res) => {
+  res.send([...playersReady]);
+});
+
+app.get("/waitroom", auth, (req, res) => {
+  if (!game) res.render("waiting-room.ejs");
+  else res.redirect("/");
+});
+
+app.get("/playerReady", auth, (req, res) => {
+  playersReady.add(res.locals.pid);
+  res.send(`Player ${res.locals.pid} is ready!`);
+  if (playersReady.size == 2) startGame();
+});
+
+app.get("/gameStarted", auth, async (req, res) => {
+  let ready = playersReady && playersReady.size == 2;
+  let response = {
+    readyPlayers: [...playersReady]
+  };
+
+  if (ready) {
+    const token = jwt.sign({ pid: res.locals.pid }, process.env.GAME_KEY, {
+      expiresIn: "30m" // make 30 min
+    });
+    res.cookie("game_cookie", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production"
+    });
+
+    // MAKE SURE TO DELETE THIS COOKIE ONCE GAME ENDS
+    res.redirect("/");
+  } else {
+    res.type("json");
+    res.send(JSON.stringify(response));
+  }
+});
 
 app.get("/login", auth, (req, res) => {
   res.render("login.ejs");
@@ -46,7 +246,7 @@ app.post("/login", async (req, res) => {
     const db = await getDBConnection();
     let user = req.body.username;
     let query = `
-        SELECT salt, hash, name, token
+        SELECT salt, hash, name
         FROM friends
         WHERE user = ?;
     `;
@@ -67,8 +267,8 @@ app.post("/login", async (req, res) => {
           message: "The username or pasword is incorrect."
         });
       } else {
-        const token = jwt.sign({ user_id: user }, verifyUser.token, {
-          expiresIn: "1h"
+        const token = jwt.sign({ user_id: user }, process.env.TOKEN_KEY, {
+          expiresIn: "1h" // make 30 min
         });
 
         let query = `
@@ -98,26 +298,25 @@ app.post("/login", async (req, res) => {
           }
 
           query = `
-                INSERT INTO players (name, pid, user)
-                VALUES (?, ?, ?);
+                INSERT INTO players (name, pid, user, token)
+                VALUES (?, ?, ?, ?);
             `;
 
-          await db.run(query, [verifyUser.name, playerId, user]);
+          await db.run(query, [verifyUser.name, playerId, user, token]);
+        } else {
+          // already logged-in
+          query = `
+                UPDATE players
+                SET token=?
+                WHERE user=?;
+          `;
+          await db.run(query, [token, user]);
         }
 
-        // no matter what, fetch the pid (guranteed to exist)
-        query = `
-            SELECT pid, name
-            FROM players
-            WHERE user = ?;
-          `;
-        let getId = await db.get(query, user);
-
-        // setEnvValue("JWT_Token",token)
-        // setEnvValue("PID",getId.pid.toString())
-
-        process.env.JWT_Token = token;
-        process.env.PID = getId.pid.toString();
+        res.cookie("access_token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production"
+        });
         res.redirect("/");
 
         // res.render('login.ejs', {
@@ -135,24 +334,6 @@ app.post("/login", async (req, res) => {
     res.render("login.ejs", { message: SERVER_ERROR_MSG });
   }
 });
-
-function setEnvValue(key, value) {
-  // read file from hdd & split if from a linebreak to a array
-  const ENV_VARS = fs.readFileSync("./.env", "utf8").split(os.EOL);
-
-  // find the env we want based on the key
-  const target = ENV_VARS.indexOf(
-    ENV_VARS.find(line => {
-      return line.match(new RegExp(key));
-    })
-  );
-
-  // replace the key/value with the new value
-  ENV_VARS.splice(target, 1, `${key}=${value}`);
-
-  // write everything back to the file system
-  fs.writeFileSync("./.env", ENV_VARS.join(os.EOL));
-}
 
 /**
  * Establishes and returns a connection to the BigTwos database.

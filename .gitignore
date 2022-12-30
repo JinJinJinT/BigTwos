@@ -12,7 +12,6 @@ node_modules
 node_modules/deck-of-cards/*
 !node_modules/deck-of-cards/dist
 !node_modules/deck-of-cards/lib
-
 start-server.bat
 open-terminal.bat
 api-launch.bat
