@@ -81,6 +81,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
   async function init() {
     // TODO:
     // Reset at end of game rather than just restarting nodemon.
+    // ADD {PASS BUTTON}
 
     /**@type {Deck} */
     let deck;
@@ -115,9 +116,12 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
 
       // update card locations when window size changes
       window.addEventListener("resize", () => updateCardLocation(cssCards));
-      let button = document.getElementById("move");
-      button.addEventListener("click", makeMove);
-      button.disabled = true;
+      let moveButton = document.getElementById("move");
+      let passButton = document.getElementById("pass");
+      moveButton.addEventListener("click", makeMove);
+      passButton.addEventListener("click", passMove);
+      moveButton.disabled = true;
+      passButton.disabled = true;
 
       setInterval(async () => {
         /** @type {number[]} */
@@ -128,6 +132,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
         let currentPlayer = await makeRequest("/currentPlayer");
         console.log(`current player is ${currentPlayer}`);
         playerCanChoose = currentPlayer == PID;
+        passButton.disabled = !playerCanChoose;
         console.log(`playerCanChoose is ${playerCanChoose}`);
         // console.log(`Current player is: ${currentPlayer}`);
       }, 1000);
@@ -253,6 +258,8 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       isPoker
     );
 
+    // BUG FOUND:
+    // Identical straights don't compare via highest card
     let handIsHigher =
       (boardHand === undefined || isPoker || currentHand == boardHand) &&
       (currentScore > boardScore ||
@@ -415,7 +422,9 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       currentScore,
       currentSuit
     ];
-    document.getElementById("type").textContent = "Type: " + boardHand;
+    let textElement = document.getElementById("type");
+    if (boardHand) textElement.textContent = "Type: " + boardHand;
+    else textElement.textContent = "";
   }
 
   /** Moves each card on the board to its attached div on the board */
@@ -487,6 +496,15 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     updateBoard(placedCards);
   }
 
+  /** Behavior for when the player passes their turn */
+  async function passMove() {
+    let formData = new FormData();
+    formData.append("cards", []);
+    formData.append("pid", PID);
+    formData.append("pass", true);
+    await makePostRequest("/makeMove", formData);
+  }
+
   // TODO:
   // Isolate Poker hands and other hands
   /**
@@ -497,7 +515,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
    */
   function checkValidHand(hand) {
     let code;
-    let name, multiplier, highCard, highSuit;
+    let name, multiplier, highCard, highSuit, highCardSuit;
 
     // flags for Straight, Flush, and Royal
     let [S, F, R] = [true, true, true];
@@ -547,6 +565,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       if (highSuit === undefined || suitValue > highSuit) {
         highSuit = suitValue;
       }
+      if (rank == highCard) highCardSuit = suitValue;
 
       // all ranks need to fall within the range which narrows as we go on.
       if (rank < min || rank > max) isConsecutive = false;
@@ -615,6 +634,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
         if (!F && !S) {
           code = 0;
         } else if (!F && S) {
+          // if straight, high suit is high card's suit
           code = 1;
         } else if (F && !S) {
           code = 2;
@@ -624,12 +644,16 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
           code = 5;
         }
       }
+      console.log(`code is ${code}`);
       [name, multiplier] = handTypes[5][code];
       // console.log("length 5 code:",name, " multiplier:",multiplier)
     }
-
+    console.log(`highCard is ${highCard}`);
     let score =
       highCard < 3 ? (highCard + 13) * multiplier : (highCard - 2) * multiplier;
+    if (!score) score = 0;
+    console.log(`Score is ${score}`);
+    if (S) highSuit = highCardSuit;
     return [name, score, highSuit, isPoker];
   }
 

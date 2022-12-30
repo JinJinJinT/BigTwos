@@ -103,12 +103,13 @@ app.get("/currentBoard", (req, res) => {
   } else {
     /** @type {Set<number>} */
     let hand = game.boardHand();
-    if (hand && hand.size) {
-      // let response = { cards: [] };
-      res.send([...hand]);
-      // console.log(JSON.stringify(hand));
-      // res.send(JSON.stringify([...game.boardHand]));
-    } else res.send("Hand undefined. Probably no cards on board");
+    if (!hand) res.send([]);
+    else res.send([...hand]);
+    // let response = { cards: [] };
+
+    // console.log(JSON.stringify(hand));
+    // res.send(JSON.stringify([...game.boardHand]));
+    // } else res.send("Hand undefined. Probably no cards on board");
   }
 
   // res.send(JSON.stringify([...game.boardHand]));
@@ -125,21 +126,22 @@ app.post("/makeMove", auth, (req, res) => {
       .send("Missing one or more of the required params.");
   } else {
     let pid = req.body.pid;
+    let pass = req.body.pass == "true";
     /** @type {string} */
     let cards = req.body.cards;
     console.log("RECIEVED CARDS: " + cards);
     console.log(`typeof cards in app.js ${typeof cards}`);
-    if (!cards) {
+    console.log(`app.js: Pass is: ${pass}`);
+    if (!cards && !pass) {
       res
         .status(INVALID_PARAM_ERROR)
-        .send("Invalid request. No cards provided. Move Pass Error.");
+        .send("Invalid request. No cards provided and player did not pass.");
     } else {
       /** @type {number[]} convert cards string to Set<number> */
       let cardsAsSet = new Set(
         cards.split(",").map(cardStringID => parseInt(cardStringID))
       );
-
-      let result = game.makeMove(pid, cardsAsSet);
+      let result = game.makeMove(pid, cardsAsSet, pass);
       if (result) res.send("Move successful");
       else res.send("Move unsuccessful");
     }
