@@ -27,8 +27,6 @@ const verifyToken = async (req, res, next) => {
     }
     return handleRoute(req, res, next, verified);
   } catch (err) {
-    console.log(err);
-    console.log("clearing cookie");
     res.clearCookie("access_token");
     res.clearCookie("game_cookie");
     res

@@ -8,7 +8,6 @@ import { makeRequest } from "./apiFunctions.js";
     const startBtn = document.getElementById("start-button");
     startBtn.addEventListener("click", queueGameStart);
     timer = setInterval(checkGameStart, 1000);
-    console.log("init");
   }
 
   async function checkGameStart() {
@@ -35,7 +34,6 @@ import { makeRequest } from "./apiFunctions.js";
   async function queueGameStart() {
     try {
       let response = await makeRequest("/playerReady");
-      console.log(response);
     } catch (err) {
       console.log(err);
     }

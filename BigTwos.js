@@ -67,7 +67,6 @@ module.exports = class BigTwos {
         cardsLeft--;
       }
       // if (firstPlayerPointer)
-      //   console.log(`first player is: ${firstPlayerPointer.pid}`);
       this.#players = firstPlayerPointer;
     }
   }
@@ -92,7 +91,6 @@ module.exports = class BigTwos {
   boardHand() {
     if (!this.#boardHand || !this.#boardHand.size) return null;
 
-    console.log(`BOARDHAND: ${[...this.#boardHand]}`);
     // /** @type {Card[]} */
     // let convertedCards = this.#boardHand.split(",").map(card => new Card(card));
     return this.#boardHand;
@@ -129,18 +127,13 @@ module.exports = class BigTwos {
 
     if (!pass) {
       this.#numPasses = 0;
-      console.log("BT got cards: " + [...cards]);
       // remove all placed cards from current players cards
       cards.forEach(placedCard => {
         this.#players.cards.delete(placedCard);
-        console.log(`Removed ${placedCard} from ${pid}'s cards`);
-        console.log([...this.#players.cards]);
       });
 
-      console.log(`Setting boardHand to cards: ${[...cards]}`);
       this.#boardHand = cards;
     } else {
-      console.log("BT is passing because pass is " + pass);
       this.#numPasses++;
       this.#players = this.#players.next;
       if (this.#numPasses == this.#size - 1) {
@@ -153,7 +146,6 @@ module.exports = class BigTwos {
     if (!this.gameOver() && !pass) {
       this.#players = this.#players.next;
     }
-    console.log("Returning true");
     return true;
   }
 

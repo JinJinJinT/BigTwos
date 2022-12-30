@@ -33,8 +33,5 @@ module.exports = class Card {
     // This was taken from the deck.js _card(i) function
     this.suit = SUIT_MATCH[(cardID / 13) | 0];
     this.rank = (cardID % 13) + 1;
-    console.log(
-      `CARD: created card of suit ${this.suit} and rank ${this.rank}`
-    );
   }
 };

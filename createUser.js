@@ -13,24 +13,26 @@ const sqlite = require("sqlite");
 const crypto = require("crypto");
 
 async function register() {
-    try {
-      const db = await getDBConnection();
-      let query = `
+  try {
+    const db = await getDBConnection();
+    let query = `
           INSERT INTO friends
           VALUES (?, ?, ?, ?);
-      `
-      let salt = crypto.randomBytes(16).toString('base64');
-      let hash = crypto.createHash('sha256').update("cummy" + salt).digest('base64');
-      // let token = crypto.randomBytes(100).toString('base64');
-      // marduk5:cocknball => jin terada
-      // await db.run(query, "marduk5", "jin terada", salt, hash, token);
-      // m1234:cummy => sussy
-      await db.run(query, "m1234", "sussy", salt, hash);
-      db.close();
-    } catch (err) {
-      console.log(err)
-      res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
-    }
+      `;
+    let salt = crypto.randomBytes(16).toString("base64");
+    let hash = crypto
+      .createHash("sha256")
+      .update("cummy" + salt)
+      .digest("base64");
+    // let token = crypto.randomBytes(100).toString('base64');
+    // marduk5:cocknball => jin terada
+    // await db.run(query, "marduk5", "jin terada", salt, hash, token);
+    // m1234:cummy => sussy
+    await db.run(query, "m1234", "sussy", salt, hash);
+    db.close();
+  } catch (err) {
+    res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
+  }
 }
 
 /**
@@ -45,4 +47,4 @@ async function getDBConnection() {
   return db;
 }
 
-register()
+register();

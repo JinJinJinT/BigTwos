@@ -31,7 +31,6 @@ async function makeRequest(url, requestOptions = {}) {
     let response = await fetch(url, requestOptions);
     await statusCheck(response);
     let data = await response.text();
-    console.log("successfull request");
     return isValidJSON(data);
   } catch (err) {
     throw err;
@@ -46,10 +45,8 @@ async function makeRequest(url, requestOptions = {}) {
  *                    Promise result
  */
 async function statusCheck(res) {
-  console.log("in status check");
   try {
     if (!res.ok) {
-      console.log("res not okay");
       let text = await res.text();
       if (res.status == 402) {
         window.location.reload();
@@ -57,7 +54,6 @@ async function statusCheck(res) {
         throw new Error("non 402 error:\n" + text);
       }
     }
-    console.log("status good");
     return res;
   } catch (err) {
     throw err;

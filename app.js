@@ -79,7 +79,6 @@ async function startGame() {
       pids = pids.map(row => row.pid);
       game = new BigTwos(pids);
       // res.send("Started new game of BigTwos...");
-      console.log(game.toString());
     } else {
       console.log("A game already exists...");
       // res.send("A game already exists... restarting the game");
@@ -129,9 +128,6 @@ app.post("/makeMove", auth, (req, res) => {
     let pass = req.body.pass == "true";
     /** @type {string} */
     let cards = req.body.cards;
-    console.log("RECIEVED CARDS: " + cards);
-    console.log(`typeof cards in app.js ${typeof cards}`);
-    console.log(`app.js: Pass is: ${pass}`);
     if (!cards && !pass) {
       res
         .status(INVALID_PARAM_ERROR)
@@ -181,7 +177,6 @@ app.get("/currentHand", auth, (req, res) => {
       .status(INVALID_STATE_ERROR)
       .send("Invalid request. There is no game in progress.");
   } else {
-    console.log("pid in /cH", res.locals.pid);
     if (!res.locals.pid) {
       res.status(SERVER_ERROR).send("PID not found");
     } else {
