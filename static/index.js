@@ -629,7 +629,9 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     document.getElementById("move").style.display = "none";
     document.getElementById("pass").style.display = "none";
     // hide the cards
-    document.querySelectorAll(".cards").innerHTML = "";
+    document
+      .querySelectorAll(".cards")
+      .forEach(element => (element.innerHTML = ""));
     document.getElementById("type").textContent = "Game Over!";
   }
 

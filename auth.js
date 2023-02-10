@@ -53,6 +53,7 @@ const tokenExists = async token => {
       WHERE token=?;
     `;
     let doesUserExist = await db.get(query, token);
+    db.close();
     return doesUserExist != undefined;
   } catch (err) {
     throw err;
@@ -105,6 +106,7 @@ const getPID = async token => {
             WHERE token=?;
         `;
     let pid = await db.get(query, token);
+    db.close();
     if (!pid) {
       throw "PID doesn't exist for user's session, please log-in again.";
     }

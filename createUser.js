@@ -28,7 +28,7 @@ async function register() {
     // marduk5:cocknball => jin terada
     // await db.run(query, "marduk5", "jin terada", salt, hash, token);
     // m1234:cummy => sussy
-    await db.run(query, "m1234", "sussy", salt, hash);
+    await db.run(query, "mel<3", "sussy", salt, hash);
     db.close();
   } catch (err) {
     res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);

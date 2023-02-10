@@ -81,6 +81,7 @@ async function startGame() {
       pids = pids.map(row => row.pid);
       game = new BigTwos(pids);
       restarted = false;
+      db.close();
       // res.send("Started new game of BigTwos...");
     } else {
       console.log("A game already exists...");
@@ -241,8 +242,15 @@ app.get("/waitroom", auth, (req, res) => {
   else res.redirect("/");
 });
 
-app.get("/playerReady", auth, (req, res) => {
-  playersReady.add(res.locals.pid);
+app.get("/playerReady", auth, async (req, res) => {
+  // get name via pid
+  const db = await getDBConnection();
+  const name = await db.get(
+    "SELECT name FROM players WHERE pid = ?",
+    res.locals.pid
+  );
+  db.close();
+  playersReady.add(name.name);
   res.send(`Player ${res.locals.pid} is ready!`);
   if (playersReady.size == 2) startGame();
 });
@@ -350,6 +358,7 @@ app.post("/login", async (req, res) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production"
         });
+        db.close();
         res.redirect("/");
 
         // res.render('login.ejs', {
