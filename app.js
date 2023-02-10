@@ -358,7 +358,6 @@ app.post("/login", async (req, res) => {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production"
         });
-        db.close();
         res.redirect("/");
 
         // res.render('login.ejs', {
@@ -375,6 +374,11 @@ app.post("/login", async (req, res) => {
     res.status(SERVER_ERROR);
     res.render("login.ejs", { message: SERVER_ERROR_MSG });
   }
+});
+
+app.get("/firstMade", (req, res) => {
+  if (game.firstMoveMade) res.send("true");
+  else res.send("false");
 });
 
 /**

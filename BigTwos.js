@@ -38,11 +38,19 @@ module.exports = class BigTwos {
   #numPasses;
 
   /**
+   * Whether the first move has been made or not.
+   * @type {boolean}
+   * @public
+   */
+  firstMoveMade;
+
+  /**
    * Initiates the gamedata for a new game of BigTwos given a list of player id's.
    * Will evenly distrubute cards to each player.
    * @param {Array.<number>} pids A list of player id's to play a game of BigTwos
    */
   constructor(pids) {
+    this.firstMoveMade = false;
     this.#players = new Player(pids[pids.length - 1]);
     let backPointer = this.#players;
 
@@ -61,14 +69,18 @@ module.exports = class BigTwos {
     let firstPlayerPointer; // player with 3 of diamonds goes first
     while (cardsLeft >= this.#size) {
       for (let i = 0; i < this.#size; i++) {
-        if (masterDeck[cardsLeft - 1] == 39) firstPlayerPointer = pointer;
+        if (masterDeck[cardsLeft - 1] == 41) {
+          firstPlayerPointer = pointer;
+          //console.log(`Player ${firstPlayerPointer.pid} goes first`);
+        }
         pointer.addCard(masterDeck[cardsLeft - 1]);
         pointer = pointer.next;
         cardsLeft--;
       }
       // if (firstPlayerPointer)
-      this.#players = firstPlayerPointer;
     }
+    this.#players = firstPlayerPointer;
+    //console.log(`Player ${this.#players.pid} goes first`);
   }
 
   /**
@@ -133,6 +145,7 @@ module.exports = class BigTwos {
       });
 
       this.#boardHand = cards;
+      this.firstMoveMade = true;
     } else {
       this.#numPasses++;
       this.#players = this.#players.next;
@@ -193,11 +206,11 @@ module.exports = class BigTwos {
       ];
     }
 
-    // check if 3 of diamonds (card #39) is in the last 42 cards
-    let threeOfDiamondsIndex = array.find(item => item == 39);
+    // check if 3 of diamonds (card #42) is in the last 42 cards
+    let threeOfDiamondsIndex = array.indexOf(41);
 
     // is it in any position besides the last 42?
-    if (array.length > 42 && threeOfDiamondsIndex < array.length - 42) {
+    if (threeOfDiamondsIndex < array.length - 42) {
       // generate random value between [array.length-42,array.length)
       let newThreeOfDiamondsIndex =
         array.length - Math.floor(Math.random() * 42) - 1;

@@ -81,6 +81,9 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
   let currentScore;
   let currentSuit; // currently selected cards
 
+  let firstMoveMade = false;
+  let firstMoveInterval;
+
   async function init() {
     // TODO:
     // Reset at end of game rather than just restarting nodemon.
@@ -130,6 +133,13 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       gameOverButton.style.display = "none";
       gameOverButton.addEventListener("click", gameOverClick);
 
+      firstMoveInterval = setInterval(async () => {
+        if (firstMoveMade) clearInterval(firstMoveInterval);
+        else {
+          firstMoveMade = await makeRequest("/firstMade");
+        }
+      }, 1000);
+
       setInterval(async () => {
         gameOver = await makeRequest("/gameOver");
         if (gameOver) {
@@ -142,7 +152,11 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
           if (newBoard && !playerJustMoved) updateBoard(newBoard);
 
           let currentPlayer = await makeRequest("/currentPlayer");
+          // console.log(`Current player is: ${currentPlayer}`);
           playerCanChoose = currentPlayer == PID;
+          // console.log(
+          // `Player can choose: ${playerCanChoose}: ${PID} == ${currentPlayer}`
+          // );
           passButton.disabled = !playerCanChoose;
           // console.log(`Current player is: ${currentPlayer}`);
         }
@@ -251,8 +265,9 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
    * @param {Set<HTMLDivElement>} hand
    */
   function updateGameValues(hand) {
-    let isPoker;
-    [currentHand, currentScore, currentSuit, isPoker] = checkValidHand(hand);
+    let isPoker, has3D;
+    [currentHand, currentScore, currentSuit, isPoker, has3D] =
+      checkValidHand(hand);
     "checkValidHand(): ", currentHand, currentScore, currentSuit, isPoker;
 
     // BUG FOUND:
@@ -262,7 +277,9 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       (currentScore > boardScore ||
         (currentScore == boardScore && currentSuit > boardHighSuit));
 
+    let firstMoveCheck = firstMoveMade || has3D;
     let allowMove =
+      firstMoveCheck &&
       playerCanChoose &&
       selected.size != 0 &&
       currentHand !== undefined &&
@@ -483,6 +500,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
    */
   function checkValidHand(hand) {
     let code;
+    let has3D = false;
     let name, multiplier, highCard, highSuit, highCardSuit;
 
     // flags for Straight, Flush, and Royal
@@ -517,6 +535,8 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       let child = item.firstElementChild;
       let [card, suit, rank] = child.classList;
       rank = parseInt(rank.replace("rank", ""));
+
+      if (rank == 3 && suit == "diamonds") has3D = true;
 
       // update the current highest card (by number)
       if (
@@ -619,7 +639,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       highCard < 3 ? (highCard + 13) * multiplier : (highCard - 2) * multiplier;
     if (!score) score = 0;
     if (S) highSuit = highCardSuit;
-    return [name, score, highSuit, isPoker];
+    return [name, score, highSuit, isPoker, has3D];
   }
 
   function gameOverLogic() {
