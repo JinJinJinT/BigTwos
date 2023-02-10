@@ -88,6 +88,7 @@ const handleRoute = (req, res, next, verified) => {
 
 const isPlayerRequest = req => {
   if (
+    req.originalUrl.match(/^\/restartGame\/?$/) ||
     req.originalUrl.match(/^\/currentHand\/?$/) ||
     req.originalUrl.match(/^\/playerReady\/?$/) ||
     req.originalUrl.match(/^\/gameStarted\/?$/) ||

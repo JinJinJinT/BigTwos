@@ -47,6 +47,8 @@ let playersReady = new Set();
 let game;
 const BigTwos = require("./BigTwos.js");
 
+let restarted = false;
+
 /* +-----------------------_____ LOGIC-----------------------+ */
 
 // startGame endpoint to initiate game
@@ -78,6 +80,7 @@ async function startGame() {
       `);
       pids = pids.map(row => row.pid);
       game = new BigTwos(pids);
+      restarted = false;
       // res.send("Started new game of BigTwos...");
     } else {
       console.log("A game already exists...");
@@ -89,6 +92,33 @@ async function startGame() {
     // res.status(SERVER_ERROR).send(SERVER_ERROR_MSG);
   }
 }
+
+app.get("/gameRestarted", (req, res) => {
+  if (restarted) {
+    res.clearCookie("game_cookie");
+    res.send("true");
+  } else {
+    res.send("false");
+  }
+});
+
+app.get("/restartGame", auth, (req, res) => {
+  if (game && game.gameOver()) {
+    game = null;
+    // clear game cookie
+    res.clearCookie("game_cookie");
+
+    // clear playersReady
+    playersReady = new Set();
+
+    restarted = true;
+    res.send("Restarted game");
+  } else {
+    res
+      .status(INVALID_PARAM_ERROR)
+      .send("No game to restart or game in progress");
+  }
+});
 
 app.get("/myPID", auth, (req, res) => {
   res.send(res.locals.pid);
@@ -112,6 +142,14 @@ app.get("/currentBoard", (req, res) => {
   }
 
   // res.send(JSON.stringify([...game.boardHand]));
+});
+
+app.get("/gameOver", (req, res) => {
+  if (!game || game.gameOver()) {
+    res.send("true");
+  } else {
+    res.send("false");
+  }
 });
 
 app.post("/makeMove", auth, (req, res) => {

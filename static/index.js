@@ -6,6 +6,9 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
   window.addEventListener("load", init);
 
   let selected = new Set();
+
+  let gameOver = false;
+
   /** Stores divs for the hand
    * @type {HTMLDivElement[]}
    */
@@ -123,15 +126,26 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       moveButton.disabled = true;
       passButton.disabled = true;
 
-      setInterval(async () => {
-        /** @type {number[]} */
-        let newBoard = await didBoardUpdate();
-        if (newBoard && !playerJustMoved) updateBoard(newBoard);
+      let gameOverButton = document.getElementById("game-over");
+      gameOverButton.style.display = "none";
+      gameOverButton.addEventListener("click", gameOverClick);
 
-        let currentPlayer = await makeRequest("/currentPlayer");
-        playerCanChoose = currentPlayer == PID;
-        passButton.disabled = !playerCanChoose;
-        // console.log(`Current player is: ${currentPlayer}`);
+      setInterval(async () => {
+        gameOver = await makeRequest("/gameOver");
+        if (gameOver) {
+          gameOverLogic();
+          let alreadyRestarted = await checkRestarted();
+          if (alreadyRestarted) window.location.reload();
+        } else {
+          /** @type {number[]} */
+          let newBoard = await didBoardUpdate();
+          if (newBoard && !playerJustMoved) updateBoard(newBoard);
+
+          let currentPlayer = await makeRequest("/currentPlayer");
+          playerCanChoose = currentPlayer == PID;
+          passButton.disabled = !playerCanChoose;
+          // console.log(`Current player is: ${currentPlayer}`);
+        }
       }, 1000);
     }
   }
@@ -606,6 +620,28 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
     if (!score) score = 0;
     if (S) highSuit = highCardSuit;
     return [name, score, highSuit, isPoker];
+  }
+
+  function gameOverLogic() {
+    // make game over button visible
+    document.getElementById("game-over").style.display = "block";
+    // hide the move and pass buttons
+    document.getElementById("move").style.display = "none";
+    document.getElementById("pass").style.display = "none";
+    // hide the cards
+    document.querySelectorAll(".cards").innerHTML = "";
+    document.getElementById("type").textContent = "Game Over!";
+  }
+
+  async function checkRestarted() {
+    let restarted = await makeRequest("/gameRestarted");
+    return restarted;
+  }
+
+  async function gameOverClick() {
+    // reset the game
+    await makeRequest("/restartGame");
+    window.location.reload();
   }
 
   function sort(a, b) {
