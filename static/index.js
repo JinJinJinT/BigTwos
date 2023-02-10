@@ -204,6 +204,7 @@ import { makeRequest, makePostRequest } from "./apiFunctions.js";
       });
       cssCards[cardCount].mount(container); // append card as child to the div
       container.firstElementChild.addEventListener("click", select);
+      container.firstElementChild.addEventListener("touchend", select);
       container.firstElementChild.slot = cardCount;
     }
     // not sure what this was
