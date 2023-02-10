@@ -29,9 +29,7 @@ const verifyToken = async (req, res, next) => {
   } catch (err) {
     res.clearCookie("access_token");
     res.clearCookie("game_cookie");
-    res
-      .status(401)
-      .send("Auth expired: Logged-out. Please refresh and log-in again.");
+    res.redirect("/login"); // auth expired
     // if (Array.isArray(err)) {
     //     err.push("Token could not be verified");
     //     if (err.some(e=>e instanceof TokenExpiredError || (e.name && e.name === "NoMatchingPIDForTokenError"))) {
