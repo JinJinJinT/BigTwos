@@ -60,10 +60,10 @@ update...
 - [x] Finish DB and log-in cookie auth
 - [x] Two browser test
 - [ ] Fully Update README
-- [ ] merge game-api branch
+- [x] merge game-api branch
 - [x] Player join/waiting screen
 - [ ] Implement new fonts and art
-- [ ] Multiplayer testing
+- [ ] Multiplayer testing (In Progress)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
